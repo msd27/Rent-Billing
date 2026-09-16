@@ -116,9 +116,17 @@ running again.
   value. If it still can't find the display on your meter's photos, the
   status line under the field shows diagnostics in the form `Couldn't read
   digits [crop:y/n tier:<name> saw:"..."]` — `crop:n` means detection
-  itself failed; `crop:y` with garbled `saw:` text means detection worked
-  but OCR misread the digits. Include that diagnostic text (or the actual
-  photo) in a bug report.
+  itself failed; `crop:y` with `saw:"(no text found)"` (as seen in a real
+  device report) means detection isolated the display correctly but
+  Tesseract's recognition step returned nothing — for that specific
+  failure mode, switched the cropped-region segmentation mode from
+  `PSM.SINGLE_LINE` (strict horizontal-alignment assumption, can return
+  totally empty text if a real photo's slight tilt or binarization noise
+  doesn't match it exactly) to `PSM.SINGLE_BLOCK` (more tolerant, still
+  targeted at one coherent region). Tapping that diagnostic status message
+  also opens the exact cropped/binarized image that was handed to
+  Tesseract, so screenshotting and sharing *that* — not just the app
+  screen — shows precisely what the pipeline saw.
 - Meter photo boxes are a fixed, uniform size using `object-fit: cover`
   (see above), so the invoice's overall shape stays stable regardless of
   what photos you take — the exported PDF's page size still matches that

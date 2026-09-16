@@ -370,7 +370,14 @@ async function runOcr(dataUrl, targetId) {
     const { dataUrl: displayDataUrl, cropped, tier } = await cropToDisplayRegion(dataUrl);
     const worker = await getOcrWorker();
     await worker.setParameters({
-      tessedit_pageseg_mode: cropped ? PSM.SINGLE_LINE : PSM.SPARSE_TEXT,
+      // SINGLE_LINE requires strict horizontal alignment and returns
+      // nothing at all if a real photo's slight tilt or binarization
+      // noise doesn't match that assumption exactly (confirmed: a real
+      // device report showed crop succeeding but recognize() returning
+      // empty text). SINGLE_BLOCK tolerates that while still being
+      // targeted at "one coherent region", instead of scanning the
+      // whole page like SPARSE_TEXT.
+      tessedit_pageseg_mode: cropped ? PSM.SINGLE_BLOCK : PSM.SPARSE_TEXT,
     });
     const {
       data: { text },
@@ -384,11 +391,15 @@ async function runOcr(dataUrl, targetId) {
       Preferences.set({ key: fieldKey(targetId), value: input.value });
       if (status) {
         status.textContent = `Detected ${reading} — please verify`;
+        status.style.cursor = "";
+        status.onclick = null;
       }
     } else if (status) {
       const snippet = text.replace(/\s+/g, " ").trim().slice(0, 40) || "(no text found)";
       const tierInfo = cropped ? `tier:${tier} ` : "";
-      status.textContent = `Couldn't read digits [crop:${cropped ? "y" : "n"} ${tierInfo}saw:"${snippet}"] — enter manually`;
+      status.textContent = `Couldn't read digits [crop:${cropped ? "y" : "n"} ${tierInfo}saw:"${snippet}"] — tap to view processed image`;
+      status.style.cursor = "pointer";
+      status.onclick = () => openOcrDebugImage(displayDataUrl);
     }
   } catch (error) {
     console.error("OCR failed", error);
@@ -441,18 +452,31 @@ function fitInvoiceToViewport() {
   const naturalWidth = 1123;
 
   invoice.style.transform = "";
+  invoice.style.marginLeft = "";
+  invoice.style.marginRight = "";
 
   if (window.innerWidth > 900) {
     return;
   }
 
+  // Flexbox/margin:auto centering positions elements using their
+  // *unscaled* layout size, not the visually-scaled result of a CSS
+  // transform — with a 1123px-wide, very tall layout box scaled down to
+  // fit a small mobile pane, that mismatch pushed the scaled invoice
+  // almost entirely out of view. Anchor the transform at top-left and
+  // compute the centering offset from the scaled size directly instead.
   const naturalHeight = invoice.offsetHeight;
   const availableWidth = wrap.clientWidth - 24;
   const availableHeight = wrap.clientHeight - 24;
   const scale = Math.min(1, availableWidth / naturalWidth, availableHeight / naturalHeight);
 
-  invoice.style.transformOrigin = "center center";
+  invoice.style.transformOrigin = "top left";
   invoice.style.transform = `scale(${scale})`;
+
+  const scaledWidth = naturalWidth * scale;
+  const horizontalMargin = Math.max(0, (availableWidth - scaledWidth) / 2);
+  invoice.style.marginLeft = `${horizontalMargin}px`;
+  invoice.style.marginRight = "0";
 }
 
 let pendingCanvas = null;
@@ -460,7 +484,11 @@ let pendingCanvas = null;
 async function renderInvoiceCanvas() {
   const invoice = document.getElementById("invoice");
   const previousTransform = invoice.style.transform;
+  const previousMarginLeft = invoice.style.marginLeft;
+  const previousMarginRight = invoice.style.marginRight;
   invoice.style.transform = "";
+  invoice.style.marginLeft = "";
+  invoice.style.marginRight = "";
 
   try {
     refreshGeneratedAt();
@@ -475,6 +503,8 @@ async function renderInvoiceCanvas() {
     });
   } finally {
     invoice.style.transform = previousTransform;
+    invoice.style.marginLeft = previousMarginLeft;
+    invoice.style.marginRight = previousMarginRight;
   }
 }
 
@@ -582,6 +612,15 @@ function payWithUpi() {
   window.location.href = `upi://pay?${params.toString()}`;
 }
 
+function openOcrDebugImage(src) {
+  document.getElementById("ocrDebugImage").src = src;
+  document.getElementById("ocrDebugOverlay").hidden = false;
+}
+
+function closeOcrDebugImage() {
+  document.getElementById("ocrDebugOverlay").hidden = true;
+}
+
 async function init() {
   await loadSavedFields();
   attachFieldPersistence();
@@ -592,6 +631,7 @@ async function init() {
   document.getElementById("pdfPreviewConfirm").addEventListener("click", confirmPdfExport);
   document.getElementById("payUpiBtn").addEventListener("click", payWithUpi);
   document.getElementById("pdfPreviewPayBtn").addEventListener("click", payWithUpi);
+  document.getElementById("ocrDebugClose").addEventListener("click", closeOcrDebugImage);
   window.addEventListener("resize", fitInvoiceToViewport);
 
   refreshGeneratedAt();

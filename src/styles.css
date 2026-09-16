@@ -504,12 +504,16 @@ address {
   }
 
   .preview-wrap {
-    align-items: center;
-    display: flex;
+    /* Deliberately not display:flex: flexbox positions a child using its
+       *layout* size, and by default also shrinks a flex item toward its
+       container (flex-shrink:1) before any transform is applied — both
+       of which broke the math in fitInvoiceToViewport, which assumes the
+       invoice's real (unshrunk) 1123px layout width. Plain block flow
+       keeps that assumption valid; centering is computed and applied
+       directly as a margin in JS instead. */
     flex: 0 0 auto;
     height: 46vh;
     height: 46dvh;
-    justify-content: center;
     order: -1;
     overflow: hidden;
     padding: 12px;
