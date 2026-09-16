@@ -107,7 +107,36 @@ attachImageInput("signatureImage", "signaturePreview");
 document.getElementById("printBtn").addEventListener("click", () => {
   refreshGeneratedAt();
   renderInvoice();
-  window.print();
+
+  if (typeof html2pdf === "undefined") {
+    window.print();
+    return;
+  }
+
+  const room = document.getElementById("room").value || "room";
+  const billingMonth = document.getElementById("billingMonth").value || "invoice";
+  const filename = `${room}-${billingMonth}`.trim().replace(/\s+/g, "-").toLowerCase() + ".pdf";
+
+  const btn = document.getElementById("printBtn");
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Generating PDF...";
+
+  html2pdf()
+    .set({
+      margin: 0,
+      filename,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+    })
+    .from(document.getElementById("invoice"))
+    .save()
+    .catch(() => window.print())
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    });
 });
 
 refreshGeneratedAt();
