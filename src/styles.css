@@ -292,13 +292,17 @@ textarea {
 }
 
 .invoice-top {
-  align-items: flex-start;
-  display: grid;
-  grid-template-columns: 1fr 250px;
-  gap: 28px;
+  /* Not a grid: a grid row's height is the max of its columns, and the
+     payment box (QR + UPI text + the Pay-via-UPI button) is now much
+     taller than the short title text, which pushed the photo row down
+     well below where the heading actually ends. Positioning the payment
+     box absolutely (as the print styles already did) keeps the header's
+     flow height tied to the title alone. */
+  position: relative;
 }
 
 .invoice-title {
+  padding-right: 230px;
   padding-top: 4px;
   text-align: center;
 }
@@ -327,7 +331,11 @@ textarea {
 }
 
 .payment-box {
+  position: absolute;
+  right: 0;
   text-align: center;
+  top: 0;
+  width: 220px;
 }
 
 .payment-box p {
@@ -404,7 +412,7 @@ address {
   font-size: 20px;
   font-style: normal;
   line-height: 1.35;
-  margin-top: 120px;
+  margin-top: 156px;
   padding: 10px 14px;
   white-space: pre-line;
 }
