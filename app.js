@@ -111,6 +111,26 @@ function withTimeout(promise, ms) {
   ]);
 }
 
+function getPrintOnlyCss() {
+  let css = "";
+  for (const sheet of document.styleSheets) {
+    let rules;
+    try {
+      rules = sheet.cssRules;
+    } catch (error) {
+      continue;
+    }
+    for (const rule of rules) {
+      if (rule instanceof CSSMediaRule && rule.media.mediaText.includes("print")) {
+        for (const innerRule of rule.cssRules) {
+          css += `${innerRule.cssText}\n`;
+        }
+      }
+    }
+  }
+  return css;
+}
+
 document.getElementById("printBtn").addEventListener("click", async () => {
   refreshGeneratedAt();
   renderInvoice();
@@ -131,8 +151,18 @@ document.getElementById("printBtn").addEventListener("click", async () => {
   btn.textContent = "Generating PDF...";
 
   try {
+    const printCss = getPrintOnlyCss();
     const canvas = await withTimeout(
-      html2canvas(document.getElementById("invoice"), { scale: 2, useCORS: true, logging: false }),
+      html2canvas(document.getElementById("invoice"), {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        onclone: (clonedDoc) => {
+          const style = clonedDoc.createElement("style");
+          style.textContent = printCss;
+          clonedDoc.head.appendChild(style);
+        },
+      }),
       20000,
     );
     const imageData = canvas.toDataURL("image/jpeg", 0.98);
