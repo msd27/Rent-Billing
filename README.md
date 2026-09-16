@@ -102,8 +102,20 @@ running again.
   loose, since real photos vary a lot more than a lab test image), but it's
   still a best-effort heuristic — always review the detected value before
   generating the bill. If it still can't find the display on your meter's
-  photos, `GREEN_THRESHOLD_TIERS` and `GREEN_MIN_AREA_FRACTION` in
-  `src/app.js` are the values to tune — send an actual sample photo along
-  with a bug report so they can be tuned against real data instead of
-  guesswork.
+  photos, the status line under the field now shows diagnostic info in the
+  form `Couldn't read digits [crop:y/n saw:"..."]` — `crop:n` means the
+  green-display detection itself failed (tune `GREEN_THRESHOLD_TIERS` /
+  `GREEN_MIN_AREA_FRACTION` in `src/app.js`); `crop:y` with garbled `saw:`
+  text means detection worked but OCR misread the digits. Either way,
+  include that diagnostic text (or better, the actual photo) in a bug
+  report — tuning blind against a screenshot hasn't been reliable.
+- Photo boxes clamp their aspect ratio to a 0.6–1.8 range (`PHOTO_ASPECT_MIN`/
+  `PHOTO_ASPECT_MAX` in `src/app.js`) so one extreme portrait/landscape photo
+  doesn't distort the whole invoice's shape too far; within that range
+  photos still show with zero cropping and zero letterboxing. The exported
+  PDF's page size always matches the invoice's actual rendered shape
+  (long edge fixed at 297mm) rather than forcing a fixed A4 box, so it
+  never has empty margins — but if your photos push the invoice noticeably
+  off a landscape shape, the PDF page won't look like traditional A4
+  landscape anymore, just gap-free.
 - App icon and splash screen are still Capacitor's defaults.

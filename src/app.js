@@ -145,13 +145,21 @@ function attachFieldPersistence() {
   });
 }
 
+// Bounds how far a single photo's own proportions can stretch the whole
+// invoice's overall shape (very tall/wide photos otherwise push the PDF
+// page far from A4-like proportions even with the dynamic page sizing).
+const PHOTO_ASPECT_MIN = 0.6;
+const PHOTO_ASPECT_MAX = 1.8;
+
 function setPreviewImage(preview, inputId, source) {
   preview.innerHTML = "";
   const image = document.createElement("img");
   image.alt = inputId.replace("Image", " meter image");
   image.addEventListener("load", () => {
     if (image.naturalWidth && image.naturalHeight) {
-      preview.style.aspectRatio = `${image.naturalWidth} / ${image.naturalHeight}`;
+      const ratio = image.naturalWidth / image.naturalHeight;
+      const clamped = Math.min(PHOTO_ASPECT_MAX, Math.max(PHOTO_ASPECT_MIN, ratio));
+      preview.style.aspectRatio = `${clamped}`;
     }
   });
   image.src = source;
@@ -351,7 +359,8 @@ async function runOcr(dataUrl, targetId) {
         status.textContent = `Detected ${reading} — please verify`;
       }
     } else if (status) {
-      status.textContent = "Couldn't read digits — please enter manually";
+      const snippet = text.replace(/\s+/g, " ").trim().slice(0, 40) || "(no text found)";
+      status.textContent = `Couldn't read digits [crop:${cropped ? "y" : "n"} saw:"${snippet}"] — enter manually`;
     }
   } catch (error) {
     console.error("OCR failed", error);
@@ -443,16 +452,25 @@ async function renderInvoiceCanvas() {
 
 async function buildAndSharePdf(canvas) {
   const imgData = canvas.toDataURL("image/jpeg", 0.92);
-  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-  const width = canvas.width * ratio;
-  const height = canvas.height * ratio;
-  const x = (pageWidth - width) / 2;
-  const y = (pageHeight - height) / 2;
 
-  pdf.addImage(imgData, "JPEG", x, y, width, height);
+  // Size the page to the invoice's own aspect ratio (long edge fixed at
+  // A4's 297mm) instead of forcing it into a fixed A4 box, which left
+  // gaps on the sides whenever the captured content's proportions
+  // (variable now that photo boxes match each photo's own aspect ratio)
+  // didn't match A4 landscape exactly.
+  const aspect = canvas.width / canvas.height;
+  const isLandscape = aspect >= 1;
+  const longEdgeMm = 297;
+  const pageWidth = isLandscape ? longEdgeMm : longEdgeMm * aspect;
+  const pageHeight = isLandscape ? longEdgeMm / aspect : longEdgeMm;
+
+  const pdf = new jsPDF({
+    orientation: isLandscape ? "landscape" : "portrait",
+    unit: "mm",
+    format: [pageWidth, pageHeight],
+  });
+
+  pdf.addImage(imgData, "JPEG", 0, 0, pageWidth, pageHeight);
 
   const room = document.getElementById("room").value || "invoice";
   const month = document.getElementById("billingMonth").value || "";
