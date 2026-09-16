@@ -109,6 +109,38 @@ attachImageInput("previousImage", "previousImagePreview");
 attachImageInput("qrImage", "qrPreview");
 attachImageInput("signatureImage", "signaturePreview");
 
+function copyTextFallback(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
+document.getElementById("copyUpiBtn").addEventListener("click", async () => {
+  const upi = document.getElementById("upi").value;
+  const btn = document.getElementById("copyUpiBtn");
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(upi);
+    } else {
+      copyTextFallback(upi);
+    }
+    const originalLabel = btn.textContent;
+    btn.textContent = "Copied!";
+    setTimeout(() => {
+      btn.textContent = originalLabel;
+    }, 1500);
+  } catch (error) {
+    console.error("Copy failed:", error);
+  }
+});
+
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
