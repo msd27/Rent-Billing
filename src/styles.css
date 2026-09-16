@@ -351,17 +351,11 @@ textarea {
 }
 
 .qr-placeholder img,
-.signature-placeholder img {
-  display: block;
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
-}
-
+.signature-placeholder img,
 .image-placeholder img {
   display: block;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   width: 100%;
 }
 
@@ -385,12 +379,12 @@ textarea {
 
 .image-placeholder {
   align-items: center;
-  aspect-ratio: 4 / 3;
   background: #e7ece8;
   border: 1px dashed #9aa89f;
   color: #48534c;
   display: flex;
   font-weight: 700;
+  height: 278px;
   justify-content: center;
   padding: 18px;
   text-align: center;

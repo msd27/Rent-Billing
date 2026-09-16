@@ -41,9 +41,15 @@ sharing one codebase.
   as a live button inside the app; it can't be embedded as a clickable
   "app launcher" in the exported PDF file itself, since a flattened image
   in a PDF has nothing to click.
-- Meter photo boxes size themselves to match each captured photo's own
-  aspect ratio, so photos always show completely with no cropping and no
-  empty letterbox gaps, whatever orientation they were taken in.
+- Meter photo boxes are a fixed, uniform size (both the same, regardless of
+  what photo you take) and crop to fill (`object-fit: cover`) rather than
+  letterbox. This was tried the other way (each box sizing itself to its
+  own photo's aspect ratio) to avoid any cropping, but that made the two
+  photos render at different sizes next to each other and threw off the
+  spacing around them — a uniform layout with minor edge-cropping reads as
+  more correct for a formal invoice than same-but-inconsistently-sized
+  photos. Frame the meter reading centered in the shot and the crop won't
+  matter.
 
 ## Working on the web app only
 
@@ -98,24 +104,25 @@ running again.
   (25s), check Android Studio's Logcat for the actual error rather than
   assuming it's a network issue.
 - Meter-reading OCR crops to the display's green backlight before reading
-  digits (trying a few brightness/color-dominance thresholds from strict to
-  loose, since real photos vary a lot more than a lab test image), but it's
-  still a best-effort heuristic — always review the detected value before
-  generating the bill. If it still can't find the display on your meter's
-  photos, the status line under the field now shows diagnostic info in the
-  form `Couldn't read digits [crop:y/n saw:"..."]` — `crop:n` means the
-  green-display detection itself failed (tune `GREEN_THRESHOLD_TIERS` /
-  `GREEN_MIN_AREA_FRACTION` in `src/app.js`); `crop:y` with garbled `saw:`
-  text means detection worked but OCR misread the digits. Either way,
-  include that diagnostic text (or better, the actual photo) in a bug
-  report — tuning blind against a screenshot hasn't been reliable.
-- Photo boxes clamp their aspect ratio to a 0.6–1.8 range (`PHOTO_ASPECT_MIN`/
-  `PHOTO_ASPECT_MAX` in `src/app.js`) so one extreme portrait/landscape photo
-  doesn't distort the whole invoice's shape too far; within that range
-  photos still show with zero cropping and zero letterboxing. The exported
-  PDF's page size always matches the invoice's actual rendered shape
-  (long edge fixed at 297mm) rather than forcing a fixed A4 box, so it
-  never has empty margins — but if your photos push the invoice noticeably
-  off a landscape shape, the PDF page won't look like traditional A4
-  landscape anymore, just gap-free.
+  digits, trying several detectors from strict to loose (`GREEN_DETECTOR_TIERS`
+  in `src/app.js`): three RGB brightness/dominance thresholds, then a
+  hue-based detector as a final fallback since hue holds up much better
+  than raw RGB dominance under the glare/vignette a real LCD photo shows
+  (a washed-out, near-white edge still has roughly the right hue even
+  though its RGB channels no longer look "green-dominant"). Verified this
+  against a synthetic image with a deliberately severe glare gradient —
+  correctly isolated the display and read the digits regardless of which
+  tier matched. Still a best-effort heuristic — always review the detected
+  value. If it still can't find the display on your meter's photos, the
+  status line under the field shows diagnostics in the form `Couldn't read
+  digits [crop:y/n tier:<name> saw:"..."]` — `crop:n` means detection
+  itself failed; `crop:y` with garbled `saw:` text means detection worked
+  but OCR misread the digits. Include that diagnostic text (or the actual
+  photo) in a bug report.
+- Meter photo boxes are a fixed, uniform size using `object-fit: cover`
+  (see above), so the invoice's overall shape stays stable regardless of
+  what photos you take — the exported PDF's page size still matches that
+  shape exactly (long edge fixed at 297mm) rather than forcing a fixed A4
+  box, so it's always gap-free, but in practice should stay close to a
+  normal A4-landscape look now.
 - App icon and splash screen are still Capacitor's defaults.

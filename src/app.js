@@ -145,23 +145,10 @@ function attachFieldPersistence() {
   });
 }
 
-// Bounds how far a single photo's own proportions can stretch the whole
-// invoice's overall shape (very tall/wide photos otherwise push the PDF
-// page far from A4-like proportions even with the dynamic page sizing).
-const PHOTO_ASPECT_MIN = 0.6;
-const PHOTO_ASPECT_MAX = 1.8;
-
 function setPreviewImage(preview, inputId, source) {
   preview.innerHTML = "";
   const image = document.createElement("img");
   image.alt = inputId.replace("Image", " meter image");
-  image.addEventListener("load", () => {
-    if (image.naturalWidth && image.naturalHeight) {
-      const ratio = image.naturalWidth / image.naturalHeight;
-      const clamped = Math.min(PHOTO_ASPECT_MAX, Math.max(PHOTO_ASPECT_MIN, ratio));
-      preview.style.aspectRatio = `${clamped}`;
-    }
-  });
   image.src = source;
   preview.appendChild(image);
 }
@@ -200,14 +187,6 @@ function extractReadingFromText(text) {
   return matches.reduce((longest, current) => (current.length > longest.length ? current : longest));
 }
 
-// Tried strict-to-loose: a real camera photo's lighting/glare/white-balance
-// varies far more than the small synthetic test image these were first
-// tuned against, so a single fixed threshold missed real display colors.
-const GREEN_THRESHOLD_TIERS = [
-  { minBrightness: 90, minDominance: 30 },
-  { minBrightness: 70, minDominance: 20 },
-  { minBrightness: 50, minDominance: 12 },
-];
 const GREEN_MIN_PIXELS = 120;
 // The display only fills a small fraction of a full, un-zoomed high-res
 // camera photo (unlike the tightly-framed synthetic test), so this must
@@ -217,11 +196,59 @@ const GREEN_CROP_PADDING_X = 0.06;
 const GREEN_CROP_PADDING_Y = 0.15;
 const GREEN_CROP_UPSCALE = 3;
 
-function isDisplayGreen(r, g, b, minBrightness, minDominance) {
+function isDisplayGreenRgb(r, g, b, minBrightness, minDominance) {
   return g > minBrightness && g - r > minDominance && g - b > minDominance;
 }
 
-function findGreenBoundingBox(imageData, minBrightness, minDominance) {
+// Hue is far more stable than raw RGB dominance across the brightness
+// gradient a real LCD photo shows (glare/vignette washing pixels toward
+// white near the edges, deeper green in the center) — RGB dominance
+// degrades as a pixel approaches white because all channels rise together.
+function rgbToHsl(r, g, b) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+  let hue = 0;
+  let saturation = 0;
+
+  if (delta > 0) {
+    saturation = delta / (1 - Math.abs(2 * lightness - 1));
+    if (max === rn) {
+      hue = ((gn - bn) / delta) % 6;
+    } else if (max === gn) {
+      hue = (bn - rn) / delta + 2;
+    } else {
+      hue = (rn - gn) / delta + 4;
+    }
+    hue *= 60;
+    if (hue < 0) hue += 360;
+  }
+
+  return { hue, saturation, lightness };
+}
+
+function isDisplayGreenHue(r, g, b) {
+  const { hue, saturation, lightness } = rgbToHsl(r, g, b);
+  return hue >= 60 && hue <= 180 && saturation >= 0.15 && lightness >= 0.12 && lightness <= 0.95;
+}
+
+// Tried strict-to-loose: a real camera photo's lighting/glare/white-balance
+// varies far more than the small flat-color synthetic image these were
+// first tuned against. The RGB tiers are fast and precise for well-lit,
+// evenly-exposed displays; the final hue-based tier is the fallback for
+// glare/vignette that washes some of the display toward white.
+const GREEN_DETECTOR_TIERS = [
+  { name: "rgb-strict", test: (r, g, b) => isDisplayGreenRgb(r, g, b, 90, 30) },
+  { name: "rgb-loose", test: (r, g, b) => isDisplayGreenRgb(r, g, b, 70, 20) },
+  { name: "rgb-very-loose", test: (r, g, b) => isDisplayGreenRgb(r, g, b, 50, 12) },
+  { name: "hue", test: isDisplayGreenHue },
+];
+
+function findGreenBoundingBox(imageData, test) {
   const { data, width, height } = imageData;
   const step = 2;
   let minX = width;
@@ -233,7 +260,7 @@ function findGreenBoundingBox(imageData, minBrightness, minDominance) {
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
       const i = (y * width + x) * 4;
-      if (isDisplayGreen(data[i], data[i + 1], data[i + 2], minBrightness, minDominance)) {
+      if (test(data[i], data[i + 1], data[i + 2])) {
         count += 1;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
@@ -254,13 +281,13 @@ function findGreenBoundingBox(imageData, minBrightness, minDominance) {
   return hasEnoughSignal ? { minX, minY, maxX, maxY, regionWidth, regionHeight } : null;
 }
 
-function binarizeDisplayCanvas(canvas, minBrightness, minDominance) {
+function binarizeDisplayCanvas(canvas, test) {
   const ctx = canvas.getContext("2d");
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const { data } = imageData;
 
   for (let i = 0; i < data.length; i += 4) {
-    const isBacklight = isDisplayGreen(data[i], data[i + 1], data[i + 2], minBrightness, minDominance);
+    const isBacklight = test(data[i], data[i + 1], data[i + 2]);
     const value = isBacklight ? 255 : 0;
     data[i] = value;
     data[i + 1] = value;
@@ -302,9 +329,9 @@ async function cropToDisplayRegion(dataUrl) {
 
   const { width, height } = imageData;
   let region = null;
-  let usedTier = GREEN_THRESHOLD_TIERS[0];
-  for (const tier of GREEN_THRESHOLD_TIERS) {
-    region = findGreenBoundingBox(imageData, tier.minBrightness, tier.minDominance);
+  let usedTier = GREEN_DETECTOR_TIERS[0];
+  for (const tier of GREEN_DETECTOR_TIERS) {
+    region = findGreenBoundingBox(imageData, tier.test);
     if (region) {
       usedTier = tier;
       break;
@@ -312,7 +339,7 @@ async function cropToDisplayRegion(dataUrl) {
   }
 
   if (!region) {
-    return { dataUrl, cropped: false };
+    return { dataUrl, cropped: false, tier: null };
   }
 
   const { minX, minY, regionWidth, regionHeight } = region;
@@ -328,9 +355,9 @@ async function cropToDisplayRegion(dataUrl) {
   cropCanvas.height = cropH * GREEN_CROP_UPSCALE;
   const cropCtx = cropCanvas.getContext("2d");
   cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropCanvas.width, cropCanvas.height);
-  binarizeDisplayCanvas(cropCanvas, usedTier.minBrightness, usedTier.minDominance);
+  binarizeDisplayCanvas(cropCanvas, usedTier.test);
 
-  return { dataUrl: cropCanvas.toDataURL("image/png"), cropped: true };
+  return { dataUrl: cropCanvas.toDataURL("image/png"), cropped: true, tier: usedTier.name };
 }
 
 async function runOcr(dataUrl, targetId) {
@@ -340,7 +367,7 @@ async function runOcr(dataUrl, targetId) {
   }
 
   try {
-    const { dataUrl: displayDataUrl, cropped } = await cropToDisplayRegion(dataUrl);
+    const { dataUrl: displayDataUrl, cropped, tier } = await cropToDisplayRegion(dataUrl);
     const worker = await getOcrWorker();
     await worker.setParameters({
       tessedit_pageseg_mode: cropped ? PSM.SINGLE_LINE : PSM.SPARSE_TEXT,
@@ -360,7 +387,8 @@ async function runOcr(dataUrl, targetId) {
       }
     } else if (status) {
       const snippet = text.replace(/\s+/g, " ").trim().slice(0, 40) || "(no text found)";
-      status.textContent = `Couldn't read digits [crop:${cropped ? "y" : "n"} saw:"${snippet}"] — enter manually`;
+      const tierInfo = cropped ? `tier:${tier} ` : "";
+      status.textContent = `Couldn't read digits [crop:${cropped ? "y" : "n"} ${tierInfo}saw:"${snippet}"] — enter manually`;
     }
   } catch (error) {
     console.error("OCR failed", error);
