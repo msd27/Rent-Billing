@@ -380,7 +380,10 @@ address {
   }
 
   .invoice-top {
-    display: block;
+    align-items: start;
+    display: grid;
+    gap: 4mm;
+    grid-template-columns: 1fr 49mm;
   }
 
   .invoice-title {
@@ -394,7 +397,6 @@ address {
 
   .invoice-title h2 {
     font-size: 16pt;
-    padding-right: 68mm;
   }
 
   .invoice-meta {
@@ -404,10 +406,7 @@ address {
   }
 
   .payment-box {
-    position: absolute;
-    right: 13mm;
     text-align: center;
-    top: 8mm;
     width: 49mm;
   }
 
@@ -417,9 +416,9 @@ address {
   }
 
   .qr-placeholder {
-    font-size: 14pt;
-    height: 42mm;
-    width: 46mm;
+    font-size: 12pt;
+    height: 32mm;
+    width: 36mm;
   }
 
   .photo-address-row {
@@ -435,7 +434,7 @@ address {
 
   .meter-card,
   .image-placeholder {
-    height: 69mm;
+    height: 49mm;
     width: 75mm;
   }
 
@@ -457,8 +456,8 @@ address {
   address {
     font-size: 12pt;
     line-height: 1.2;
-    margin-top: 18mm;
-    padding: 4mm;
+    margin-top: 0;
+    padding: 3mm;
   }
 
   .bill-table {
@@ -486,10 +485,9 @@ address {
   }
 
   .signature-block {
-    bottom: 8mm;
     font-size: 9pt;
-    position: absolute;
-    right: 13mm;
+    margin-left: auto;
+    margin-top: 3mm;
     text-align: right;
     width: 62mm;
   }
