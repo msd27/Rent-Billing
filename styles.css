@@ -127,10 +127,17 @@ textarea {
 }
 
 .invoice-top {
-  align-items: flex-start;
+  align-items: start;
   display: grid;
-  grid-template-columns: 1fr 250px;
+  grid-template-columns: 1fr 325px;
   gap: 28px;
+}
+
+.invoice-left,
+.invoice-right {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .invoice-title {
@@ -194,14 +201,6 @@ textarea {
   width: 100%;
 }
 
-.photo-address-row {
-  align-items: flex-start;
-  display: grid;
-  grid-template-columns: 1fr 325px;
-  gap: 42px;
-  margin-top: 12px;
-}
-
 .meter-photos {
   display: grid;
   gap: 14px;
@@ -243,7 +242,6 @@ address {
   font-size: 20px;
   font-style: normal;
   line-height: 1.35;
-  margin-top: 120px;
   padding: 10px 14px;
   white-space: pre-line;
 }
@@ -382,8 +380,15 @@ address {
   .invoice-top {
     align-items: start;
     display: grid;
+    gap: 8mm;
+    grid-template-columns: 1fr 82mm;
+  }
+
+  .invoice-left,
+  .invoice-right {
+    display: flex;
+    flex-direction: column;
     gap: 4mm;
-    grid-template-columns: 1fr 49mm;
   }
 
   .invoice-title {
@@ -407,7 +412,7 @@ address {
 
   .payment-box {
     text-align: center;
-    width: 49mm;
+    width: 100%;
   }
 
   .payment-box p {
@@ -417,14 +422,8 @@ address {
 
   .qr-placeholder {
     font-size: 12pt;
-    height: 32mm;
+    height: 36mm;
     width: 36mm;
-  }
-
-  .photo-address-row {
-    grid-template-columns: 155mm 82mm;
-    gap: 18mm;
-    margin-top: 4mm;
   }
 
   .meter-photos {
