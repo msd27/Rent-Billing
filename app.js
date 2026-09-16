@@ -104,11 +104,19 @@ attachImageInput("previousImage", "previousImagePreview");
 attachImageInput("qrImage", "qrPreview");
 attachImageInput("signatureImage", "signaturePreview");
 
-document.getElementById("printBtn").addEventListener("click", () => {
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("PDF generation timed out")), ms)),
+  ]);
+}
+
+document.getElementById("printBtn").addEventListener("click", async () => {
   refreshGeneratedAt();
   renderInvoice();
 
-  if (typeof html2pdf === "undefined") {
+  const canGeneratePdf = typeof html2canvas !== "undefined" && window.jspdf && window.jspdf.jsPDF;
+  if (!canGeneratePdf) {
     window.print();
     return;
   }
@@ -122,21 +130,25 @@ document.getElementById("printBtn").addEventListener("click", () => {
   btn.disabled = true;
   btn.textContent = "Generating PDF...";
 
-  html2pdf()
-    .set({
-      margin: 0,
-      filename,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-    })
-    .from(document.getElementById("invoice"))
-    .save()
-    .catch(() => window.print())
-    .finally(() => {
-      btn.disabled = false;
-      btn.textContent = originalLabel;
-    });
+  try {
+    const canvas = await withTimeout(
+      html2canvas(document.getElementById("invoice"), { scale: 2, useCORS: true, logging: false }),
+      20000,
+    );
+    const imageData = canvas.toDataURL("image/jpeg", 0.98);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    pdf.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
+    pdf.save(filename);
+  } catch (error) {
+    console.error("PDF generation failed, falling back to print dialog:", error);
+    window.print();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
 });
 
 refreshGeneratedAt();
