@@ -169,7 +169,7 @@ textarea {
 }
 
 .payment-box {
-  text-align: center;
+  text-align: right;
 }
 
 .payment-box p {
@@ -208,9 +208,7 @@ textarea {
 }
 
 .meter-card {
-  height: 278px;
   margin: 0;
-  position: relative;
 }
 
 .image-placeholder {
@@ -228,13 +226,10 @@ textarea {
 }
 
 .meter-card figcaption {
-  bottom: 9px;
-  color: #fff;
-  font-size: 15px;
-  line-height: 1;
-  position: absolute;
-  right: 14px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 6px;
+  text-align: center;
 }
 
 address {
@@ -411,7 +406,7 @@ address {
   }
 
   .payment-box {
-    text-align: center;
+    text-align: right;
     width: 100%;
   }
 
@@ -431,15 +426,11 @@ address {
     grid-template-columns: repeat(2, 75mm);
   }
 
-  .meter-card,
-  .image-placeholder {
-    height: 49mm;
-    width: 75mm;
-  }
-
   .image-placeholder {
     font-size: 10pt;
+    height: 49mm;
     padding: 2mm;
+    width: 75mm;
   }
 
   .image-placeholder img {
@@ -447,9 +438,8 @@ address {
   }
 
   .meter-card figcaption {
-    bottom: 2mm;
-    font-size: 10pt;
-    right: 4mm;
+    font-size: 9pt;
+    margin-top: 1.5mm;
   }
 
   address {

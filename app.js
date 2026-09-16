@@ -60,6 +60,9 @@ function renderInvoice() {
   setOutput("total", money.format(total));
   setOutput("deductionFormula", deduction ? `-${money.format(deduction)}(tuition room fan charge)` : "");
   setOutput("otherFormula", otherCharges ? ` + ${money.format(otherCharges)}(other charges)` : "");
+
+  const otherChargesReason = document.getElementById("otherChargesReason").value.trim();
+  setOutput("otherChargesReasonNote", otherChargesReason ? ` (${otherChargesReason})` : "");
 }
 
 function attachImageInput(inputId, previewId) {
@@ -98,6 +101,8 @@ function attachImageInput(inputId, previewId) {
 fields.forEach((id) => {
   document.getElementById(id).addEventListener("input", renderInvoice);
 });
+
+document.getElementById("otherChargesReason").addEventListener("input", renderInvoice);
 
 attachImageInput("currentImage", "currentImagePreview");
 attachImageInput("previousImage", "previousImagePreview");

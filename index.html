@@ -71,14 +71,19 @@ GOALPARA, ASSAM-783124</textarea>
           </label>
         </div>
 
+        <label>
+          Other charges reason
+          <input id="otherChargesReason" placeholder="e.g. repair charge" />
+        </label>
+
         <div class="control-grid">
           <label>
             Current meter date
-            <input id="currentDate" value="1st September 2026" />
+            <input id="currentDate" placeholder="e.g. 1st September 2026" />
           </label>
           <label>
             Previous meter date
-            <input id="previousDate" value="30 June 2026" />
+            <input id="previousDate" placeholder="e.g. 30 June 2026" />
           </label>
         </div>
 
@@ -173,7 +178,7 @@ GOALPARA, ASSAM-783124</textarea>
           </table>
 
           <footer class="invoice-footer">
-            <p>Other charges <span class="as">(অন্য খৰচ)</span> = <span data-out="otherCharges"></span></p>
+            <p>Other charges <span class="as">(অন্য খৰচ)</span> = <span data-out="otherCharges"></span><span data-out="otherChargesReasonNote"></span></p>
             <div class="cut-line">------------------------------******------------------------------</div>
             <div class="signature-block">
               <div id="signaturePreview" class="signature-placeholder">Upload signature</div>
