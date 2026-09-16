@@ -48,10 +48,12 @@ GOALPARA, ASSAM-783124</textarea>
           <label>
             Current reading
             <input id="currentReading" type="number" value="190" />
+            <span id="currentReadingOcrStatus" class="ocr-status" role="status"></span>
           </label>
           <label>
             Previous reading
             <input id="previousReading" type="number" value="142" />
+            <span id="previousReadingOcrStatus" class="ocr-status" role="status"></span>
           </label>
           <label>
             Rate per unit
@@ -83,22 +85,22 @@ GOALPARA, ASSAM-783124</textarea>
         </div>
 
         <div class="uploads">
-          <label>
-            Current meter image
-            <input id="currentImage" type="file" accept="image/*" />
-          </label>
-          <label>
-            Previous meter image
-            <input id="previousImage" type="file" accept="image/*" />
-          </label>
-          <label>
-            Payment QR image
-            <input id="qrImage" type="file" accept="image/*" />
-          </label>
-          <label>
-            Owner signature image
-            <input id="signatureImage" type="file" accept="image/*" />
-          </label>
+          <div class="upload-row">
+            <span class="upload-label">Current meter image</span>
+            <button id="currentImageBtn" class="secondary-btn" type="button">Add photo</button>
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">Previous meter image</span>
+            <button id="previousImageBtn" class="secondary-btn" type="button">Add photo</button>
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">Payment QR image</span>
+            <button id="qrImageBtn" class="secondary-btn" type="button">Add photo</button>
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">Owner signature image</span>
+            <button id="signatureImageBtn" class="secondary-btn" type="button">Add photo</button>
+          </div>
         </div>
       </section>
 
@@ -118,11 +120,11 @@ GOALPARA, ASSAM-783124</textarea>
           <section class="photo-address-row">
             <div class="meter-photos">
               <figure class="meter-card">
-                <div id="currentImagePreview" class="image-placeholder">Upload current meter image</div>
+                <div id="currentImagePreview" class="image-placeholder">Add current meter image</div>
                 <figcaption data-out="currentDate"></figcaption>
               </figure>
               <figure class="meter-card">
-                <div id="previousImagePreview" class="image-placeholder">Upload previous meter image</div>
+                <div id="previousImagePreview" class="image-placeholder">Add previous meter image</div>
                 <figcaption data-out="previousDate"></figcaption>
               </figure>
             </div>

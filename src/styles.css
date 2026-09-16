@@ -112,6 +112,48 @@ textarea {
   background: var(--accent-dark);
 }
 
+.primary-btn:disabled {
+  background: #8ba8a4;
+  cursor: not-allowed;
+}
+
+.upload-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.upload-label {
+  color: #20272d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.secondary-btn {
+  background: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent-dark);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.secondary-btn:hover {
+  background: var(--panel);
+}
+
+.ocr-status {
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 14px;
+}
+
 .preview-wrap {
   overflow: auto;
   padding: 28px;
@@ -330,6 +372,30 @@ address {
 
   .preview-wrap {
     padding: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .controls {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .control-header {
+    flex-wrap: wrap;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .primary-btn {
+    width: 100%;
+  }
+
+  .preview-wrap {
+    overflow-x: hidden;
+    padding: 12px;
   }
 }
 
