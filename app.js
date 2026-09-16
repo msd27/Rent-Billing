@@ -60,6 +60,9 @@ function renderInvoice() {
   setOutput("total", money.format(total));
   setOutput("deductionFormula", deduction ? `-${money.format(deduction)}(tuition room fan charge)` : "");
   setOutput("otherFormula", otherCharges ? ` + ${money.format(otherCharges)}(other charges)` : "");
+
+  const otherChargesReason = document.getElementById("otherChargesReason").value.trim();
+  setOutput("otherChargesReasonNote", otherChargesReason ? ` (${otherChargesReason})` : "");
 }
 
 function attachImageInput(inputId, previewId) {
@@ -99,15 +102,120 @@ fields.forEach((id) => {
   document.getElementById(id).addEventListener("input", renderInvoice);
 });
 
+document.getElementById("otherChargesReason").addEventListener("input", renderInvoice);
+
 attachImageInput("currentImage", "currentImagePreview");
 attachImageInput("previousImage", "previousImagePreview");
 attachImageInput("qrImage", "qrPreview");
 attachImageInput("signatureImage", "signaturePreview");
 
-document.getElementById("printBtn").addEventListener("click", () => {
+function copyTextFallback(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
+document.getElementById("copyUpiBtn").addEventListener("click", async () => {
+  const upi = document.getElementById("upi").value;
+  const btn = document.getElementById("copyUpiBtn");
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(upi);
+    } else {
+      copyTextFallback(upi);
+    }
+    const originalLabel = btn.textContent;
+    btn.textContent = "Copied!";
+    setTimeout(() => {
+      btn.textContent = originalLabel;
+    }, 1500);
+  } catch (error) {
+    console.error("Copy failed:", error);
+  }
+});
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("PDF generation timed out")), ms)),
+  ]);
+}
+
+function getPrintOnlyCss() {
+  let css = "";
+  for (const sheet of document.styleSheets) {
+    let rules;
+    try {
+      rules = sheet.cssRules;
+    } catch (error) {
+      continue;
+    }
+    for (const rule of rules) {
+      if (rule instanceof CSSMediaRule && rule.media.mediaText.includes("print")) {
+        for (const innerRule of rule.cssRules) {
+          css += `${innerRule.cssText}\n`;
+        }
+      }
+    }
+  }
+  return css;
+}
+
+document.getElementById("printBtn").addEventListener("click", async () => {
   refreshGeneratedAt();
   renderInvoice();
-  window.print();
+
+  const canGeneratePdf = typeof html2canvas !== "undefined" && window.jspdf && window.jspdf.jsPDF;
+  if (!canGeneratePdf) {
+    window.print();
+    return;
+  }
+
+  const room = document.getElementById("room").value || "room";
+  const billingMonth = document.getElementById("billingMonth").value || "invoice";
+  const filename = `${room}-${billingMonth}`.trim().replace(/\s+/g, "-").toLowerCase() + ".pdf";
+
+  const btn = document.getElementById("printBtn");
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Generating PDF...";
+
+  try {
+    const printCss = getPrintOnlyCss();
+    const canvas = await withTimeout(
+      html2canvas(document.getElementById("invoice"), {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        onclone: (clonedDoc) => {
+          const style = clonedDoc.createElement("style");
+          style.textContent = printCss;
+          clonedDoc.head.appendChild(style);
+        },
+      }),
+      20000,
+    );
+    const imageData = canvas.toDataURL("image/jpeg", 0.98);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    pdf.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
+    pdf.save(filename);
+  } catch (error) {
+    console.error("PDF generation failed, falling back to print dialog:", error);
+    window.print();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
 });
 
 refreshGeneratedAt();

@@ -71,14 +71,19 @@ GOALPARA, ASSAM-783124</textarea>
           </label>
         </div>
 
+        <label>
+          Other charges reason
+          <input id="otherChargesReason" placeholder="e.g. repair charge" />
+        </label>
+
         <div class="control-grid">
           <label>
             Current meter date
-            <input id="currentDate" value="1st September 2026" />
+            <input id="currentDate" placeholder="e.g. 1st September 2026" />
           </label>
           <label>
             Previous meter date
-            <input id="previousDate" value="30 June 2026" />
+            <input id="previousDate" placeholder="e.g. 30 June 2026" />
           </label>
         </div>
 
@@ -105,32 +110,36 @@ GOALPARA, ASSAM-783124</textarea>
       <section class="preview-wrap" aria-label="Invoice preview">
         <article id="invoice" class="invoice">
           <header class="invoice-top">
-            <div class="invoice-title">
-              <p>INVOICE</p>
-              <h2><span data-out="room"></span> : <span data-out="tenant"></span> | <span data-out="billingMonth"></span></h2>
+            <div class="invoice-left">
+              <div class="invoice-title">
+                <p>INVOICE</p>
+                <h2><span data-out="room"></span> : <span data-out="tenant"></span> | <span data-out="billingMonth"></span></h2>
+              </div>
+              <div class="meter-photos">
+                <figure class="meter-card">
+                  <div id="currentImagePreview" class="image-placeholder">Upload current meter image</div>
+                  <figcaption data-out="currentDate"></figcaption>
+                </figure>
+                <figure class="meter-card">
+                  <div id="previousImagePreview" class="image-placeholder">Upload previous meter image</div>
+                  <figcaption data-out="previousDate"></figcaption>
+                </figure>
+              </div>
             </div>
-            <div class="payment-box">
-              <div id="qrPreview" class="qr-placeholder">QR</div>
-              <p>UPI ID: <span data-out="upi"></span></p>
+            <div class="invoice-right">
+              <div class="payment-box">
+                <div id="qrPreview" class="qr-placeholder">QR</div>
+                <p class="upi-line">
+                  UPI ID: <span data-out="upi"></span>
+                  <button type="button" id="copyUpiBtn" class="copy-btn">Copy</button>
+                </p>
+              </div>
+              <address>
+                <strong>ADDRESS:</strong>
+                <span data-out="address"></span>
+              </address>
             </div>
           </header>
-
-          <section class="photo-address-row">
-            <div class="meter-photos">
-              <figure class="meter-card">
-                <div id="currentImagePreview" class="image-placeholder">Upload current meter image</div>
-                <figcaption data-out="currentDate"></figcaption>
-              </figure>
-              <figure class="meter-card">
-                <div id="previousImagePreview" class="image-placeholder">Upload previous meter image</div>
-                <figcaption data-out="previousDate"></figcaption>
-              </figure>
-            </div>
-            <address>
-              <strong>ADDRESS:</strong>
-              <span data-out="address"></span>
-            </address>
-          </section>
 
           <table class="bill-table">
             <tbody>
@@ -172,7 +181,7 @@ GOALPARA, ASSAM-783124</textarea>
           </table>
 
           <footer class="invoice-footer">
-            <p>Other charges <span class="as">(অন্য খৰচ)</span> = <span data-out="otherCharges"></span></p>
+            <p>Other charges <span class="as">(অন্য খৰচ)</span> = <span data-out="otherCharges"></span><span data-out="otherChargesReasonNote"></span></p>
             <div class="cut-line">------------------------------******------------------------------</div>
             <div class="signature-block">
               <div id="signaturePreview" class="signature-placeholder">Upload signature</div>
@@ -184,6 +193,7 @@ GOALPARA, ASSAM-783124</textarea>
       </section>
     </main>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
