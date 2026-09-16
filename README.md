@@ -34,6 +34,16 @@ sharing one codebase.
   before committing to anything; "Save / Share PDF" in that preview then
   builds the actual PDF (jsPDF + html2canvas) and opens the native share
   sheet on Android, or downloads it directly in a browser.
+- "Pay via UPI" (next to the QR code, and in the PDF preview) opens a
+  `upi://pay` deep link pre-filled with the UPI ID, owner name, computed
+  total, and a note — Android hands this to whichever UPI apps are
+  installed (Google Pay, PhonePe, etc.) as an app chooser. This only works
+  as a live button inside the app; it can't be embedded as a clickable
+  "app launcher" in the exported PDF file itself, since a flattened image
+  in a PDF has nothing to click.
+- Meter photo boxes size themselves to match each captured photo's own
+  aspect ratio, so photos always show completely with no cropping and no
+  empty letterbox gaps, whatever orientation they were taken in.
 
 ## Working on the web app only
 
@@ -88,9 +98,12 @@ running again.
   (25s), check Android Studio's Logcat for the actual error rather than
   assuming it's a network issue.
 - Meter-reading OCR crops to the display's green backlight before reading
-  digits, but it's still a best-effort heuristic — always review the
-  detected value before generating the bill. If it's consistently wrong on
-  your meter's photos, the green-detection thresholds in
-  `src/app.js` (`GREEN_MIN_BRIGHTNESS`, `GREEN_MIN_DOMINANCE`) may need
-  tuning to your meter's actual backlight color and lighting conditions.
+  digits (trying a few brightness/color-dominance thresholds from strict to
+  loose, since real photos vary a lot more than a lab test image), but it's
+  still a best-effort heuristic — always review the detected value before
+  generating the bill. If it still can't find the display on your meter's
+  photos, `GREEN_THRESHOLD_TIERS` and `GREEN_MIN_AREA_FRACTION` in
+  `src/app.js` are the values to tune — send an actual sample photo along
+  with a bug report so they can be tuned against real data instead of
+  guesswork.
 - App icon and splash screen are still Capacitor's defaults.

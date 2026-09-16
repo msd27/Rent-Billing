@@ -80,10 +80,7 @@ function setOutput(name, value) {
   });
 }
 
-function renderInvoice() {
-  fields.forEach((id) => setOutput(id, document.getElementById(id).value));
-  setOutput("generatedAt", generatedAt);
-
+function computeTotals() {
   const currentReading = numericValue("currentReading");
   const previousReading = numericValue("previousReading");
   const rate = numericValue("rate");
@@ -93,6 +90,15 @@ function renderInvoice() {
   const units = Math.max(currentReading - previousReading, 0);
   const energyCharge = units * rate;
   const total = rent + energyCharge - deduction + otherCharges;
+
+  return { units, energyCharge, rent, deduction, otherCharges, total };
+}
+
+function renderInvoice() {
+  fields.forEach((id) => setOutput(id, document.getElementById(id).value));
+  setOutput("generatedAt", generatedAt);
+
+  const { units, energyCharge, rent, deduction, otherCharges, total } = computeTotals();
 
   setOutput("units", money.format(units));
   setOutput("energyCharge", money.format(energyCharge));
@@ -143,6 +149,11 @@ function setPreviewImage(preview, inputId, source) {
   preview.innerHTML = "";
   const image = document.createElement("img");
   image.alt = inputId.replace("Image", " meter image");
+  image.addEventListener("load", () => {
+    if (image.naturalWidth && image.naturalHeight) {
+      preview.style.aspectRatio = `${image.naturalWidth} / ${image.naturalHeight}`;
+    }
+  });
   image.src = source;
   preview.appendChild(image);
 }
@@ -168,7 +179,6 @@ async function getOcrWorker() {
     ocrWorker = await withTimeout(workerPromise, OCR_TIMEOUT_MS, "Timed out starting the OCR engine");
     await ocrWorker.setParameters({
       tessedit_char_whitelist: "0123456789",
-      tessedit_pageseg_mode: PSM.SINGLE_LINE,
     });
   }
   return ocrWorker;
@@ -182,25 +192,67 @@ function extractReadingFromText(text) {
   return matches.reduce((longest, current) => (current.length > longest.length ? current : longest));
 }
 
-const GREEN_MIN_BRIGHTNESS = 90;
-const GREEN_MIN_DOMINANCE = 30;
-const GREEN_MIN_PIXELS = 200;
-const GREEN_MIN_AREA_FRACTION = 0.03;
+// Tried strict-to-loose: a real camera photo's lighting/glare/white-balance
+// varies far more than the small synthetic test image these were first
+// tuned against, so a single fixed threshold missed real display colors.
+const GREEN_THRESHOLD_TIERS = [
+  { minBrightness: 90, minDominance: 30 },
+  { minBrightness: 70, minDominance: 20 },
+  { minBrightness: 50, minDominance: 12 },
+];
+const GREEN_MIN_PIXELS = 120;
+// The display only fills a small fraction of a full, un-zoomed high-res
+// camera photo (unlike the tightly-framed synthetic test), so this must
+// stay low relative to the whole frame.
+const GREEN_MIN_AREA_FRACTION = 0.004;
 const GREEN_CROP_PADDING_X = 0.06;
 const GREEN_CROP_PADDING_Y = 0.15;
 const GREEN_CROP_UPSCALE = 3;
 
-function isDisplayGreen(r, g, b) {
-  return g > GREEN_MIN_BRIGHTNESS && g - r > GREEN_MIN_DOMINANCE && g - b > GREEN_MIN_DOMINANCE;
+function isDisplayGreen(r, g, b, minBrightness, minDominance) {
+  return g > minBrightness && g - r > minDominance && g - b > minDominance;
 }
 
-function binarizeDisplayCanvas(canvas) {
+function findGreenBoundingBox(imageData, minBrightness, minDominance) {
+  const { data, width, height } = imageData;
+  const step = 2;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  let count = 0;
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const i = (y * width + x) * 4;
+      if (isDisplayGreen(data[i], data[i + 1], data[i + 2], minBrightness, minDominance)) {
+        count += 1;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  const regionWidth = maxX - minX;
+  const regionHeight = maxY - minY;
+  const hasEnoughSignal =
+    count >= GREEN_MIN_PIXELS &&
+    regionWidth > 0 &&
+    regionHeight > 0 &&
+    (regionWidth * regionHeight) / (width * height) >= GREEN_MIN_AREA_FRACTION;
+
+  return hasEnoughSignal ? { minX, minY, maxX, maxY, regionWidth, regionHeight } : null;
+}
+
+function binarizeDisplayCanvas(canvas, minBrightness, minDominance) {
   const ctx = canvas.getContext("2d");
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const { data } = imageData;
 
   for (let i = 0; i < data.length; i += 4) {
-    const isBacklight = isDisplayGreen(data[i], data[i + 1], data[i + 2]);
+    const isBacklight = isDisplayGreen(data[i], data[i + 1], data[i + 2], minBrightness, minDominance);
     const value = isBacklight ? 255 : 0;
     data[i] = value;
     data[i + 1] = value;
@@ -224,7 +276,7 @@ async function cropToDisplayRegion(dataUrl) {
   try {
     img = await loadImage(dataUrl);
   } catch {
-    return dataUrl;
+    return { dataUrl, cropped: false };
   }
 
   const canvas = document.createElement("canvas");
@@ -237,42 +289,25 @@ async function cropToDisplayRegion(dataUrl) {
   try {
     imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   } catch {
-    return dataUrl;
+    return { dataUrl, cropped: false };
   }
 
-  const { data, width, height } = imageData;
-  const step = 2;
-  let minX = width;
-  let minY = height;
-  let maxX = 0;
-  let maxY = 0;
-  let greenCount = 0;
-
-  for (let y = 0; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      const i = (y * width + x) * 4;
-      if (isDisplayGreen(data[i], data[i + 1], data[i + 2])) {
-        greenCount += 1;
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
+  const { width, height } = imageData;
+  let region = null;
+  let usedTier = GREEN_THRESHOLD_TIERS[0];
+  for (const tier of GREEN_THRESHOLD_TIERS) {
+    region = findGreenBoundingBox(imageData, tier.minBrightness, tier.minDominance);
+    if (region) {
+      usedTier = tier;
+      break;
     }
   }
 
-  const regionWidth = maxX - minX;
-  const regionHeight = maxY - minY;
-  const hasEnoughSignal =
-    greenCount >= GREEN_MIN_PIXELS &&
-    regionWidth > 0 &&
-    regionHeight > 0 &&
-    (regionWidth * regionHeight) / (width * height) >= GREEN_MIN_AREA_FRACTION;
-
-  if (!hasEnoughSignal) {
-    return dataUrl;
+  if (!region) {
+    return { dataUrl, cropped: false };
   }
 
+  const { minX, minY, regionWidth, regionHeight } = region;
   const padX = regionWidth * GREEN_CROP_PADDING_X;
   const padY = regionHeight * GREEN_CROP_PADDING_Y;
   const cropX = Math.max(0, minX - padX);
@@ -285,9 +320,9 @@ async function cropToDisplayRegion(dataUrl) {
   cropCanvas.height = cropH * GREEN_CROP_UPSCALE;
   const cropCtx = cropCanvas.getContext("2d");
   cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropCanvas.width, cropCanvas.height);
-  binarizeDisplayCanvas(cropCanvas);
+  binarizeDisplayCanvas(cropCanvas, usedTier.minBrightness, usedTier.minDominance);
 
-  return cropCanvas.toDataURL("image/png");
+  return { dataUrl: cropCanvas.toDataURL("image/png"), cropped: true };
 }
 
 async function runOcr(dataUrl, targetId) {
@@ -297,8 +332,11 @@ async function runOcr(dataUrl, targetId) {
   }
 
   try {
-    const displayDataUrl = await cropToDisplayRegion(dataUrl);
+    const { dataUrl: displayDataUrl, cropped } = await cropToDisplayRegion(dataUrl);
     const worker = await getOcrWorker();
+    await worker.setParameters({
+      tessedit_pageseg_mode: cropped ? PSM.SINGLE_LINE : PSM.SPARSE_TEXT,
+    });
     const {
       data: { text },
     } = await withTimeout(worker.recognize(displayDataUrl), OCR_TIMEOUT_MS, "Timed out reading the photo");
@@ -393,7 +431,11 @@ async function renderInvoiceCanvas() {
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
-    return await html2canvas(invoice, { scale: 2, useCORS: true });
+    return await html2canvas(invoice, {
+      scale: 2,
+      useCORS: true,
+      ignoreElements: (el) => el.id === "payUpiBtn",
+    });
   } finally {
     invoice.style.transform = previousTransform;
   }
@@ -466,6 +508,34 @@ async function confirmPdfExport() {
   }
 }
 
+function payWithUpi() {
+  const upiId = document.getElementById("upi").value.trim();
+  if (!upiId) {
+    return;
+  }
+
+  const ownerNameEl = document.querySelector(".signature-block strong");
+  const payeeName = ownerNameEl ? ownerNameEl.textContent.trim() : "Owner";
+  const room = document.getElementById("room").value.trim();
+  const billingMonth = document.getElementById("billingMonth").value.trim();
+  const { total } = computeTotals();
+
+  const params = new URLSearchParams({
+    pa: upiId,
+    pn: payeeName,
+    cu: "INR",
+  });
+  if (total > 0) {
+    params.set("am", total.toFixed(2));
+  }
+  const note = `Rent ${room} ${billingMonth}`.trim();
+  if (note) {
+    params.set("tn", note);
+  }
+
+  window.location.href = `upi://pay?${params.toString()}`;
+}
+
 async function init() {
   await loadSavedFields();
   attachFieldPersistence();
@@ -474,6 +544,8 @@ async function init() {
   document.getElementById("printBtn").addEventListener("click", openPdfPreview);
   document.getElementById("pdfPreviewClose").addEventListener("click", closePdfPreview);
   document.getElementById("pdfPreviewConfirm").addEventListener("click", confirmPdfExport);
+  document.getElementById("payUpiBtn").addEventListener("click", payWithUpi);
+  document.getElementById("pdfPreviewPayBtn").addEventListener("click", payWithUpi);
   window.addEventListener("resize", fitInvoiceToViewport);
 
   refreshGeneratedAt();

@@ -262,11 +262,19 @@ textarea {
 
 .pdf-preview-actions {
   border-top: 1px solid #dde3e6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   padding: 12px 16px;
 }
 
-.pdf-preview-actions .primary-btn {
+.pdf-preview-actions .primary-btn,
+.pdf-preview-actions .secondary-btn {
   width: 100%;
+}
+
+.pay-upi-btn {
+  margin-top: 8px;
 }
 
 .preview-wrap {
@@ -377,12 +385,12 @@ textarea {
 
 .image-placeholder {
   align-items: center;
+  aspect-ratio: 4 / 3;
   background: #e7ece8;
   border: 1px dashed #9aa89f;
   color: #48534c;
   display: flex;
   font-weight: 700;
-  height: 278px;
   justify-content: center;
   padding: 18px;
   text-align: center;
