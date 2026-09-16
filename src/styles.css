@@ -228,11 +228,17 @@ textarea {
 }
 
 .qr-placeholder img,
-.image-placeholder img,
 .signature-placeholder img {
   display: block;
   height: 100%;
   object-fit: cover;
+  width: 100%;
+}
+
+.image-placeholder img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
   width: 100%;
 }
 
@@ -251,9 +257,7 @@ textarea {
 }
 
 .meter-card {
-  height: 278px;
   margin: 0;
-  position: relative;
 }
 
 .image-placeholder {
@@ -271,13 +275,11 @@ textarea {
 }
 
 .meter-card figcaption {
-  bottom: 9px;
-  color: #fff;
-  font-size: 15px;
-  line-height: 1;
-  position: absolute;
-  right: 14px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.3;
+  margin-top: 6px;
+  text-align: center;
 }
 
 address {
@@ -499,7 +501,6 @@ address {
     grid-template-columns: repeat(2, 75mm);
   }
 
-  .meter-card,
   .image-placeholder {
     height: 69mm;
     width: 75mm;
@@ -510,14 +511,9 @@ address {
     padding: 2mm;
   }
 
-  .image-placeholder img {
-    object-fit: contain;
-  }
-
   .meter-card figcaption {
-    bottom: 2mm;
-    font-size: 10pt;
-    right: 4mm;
+    font-size: 8pt;
+    margin-top: 1.5mm;
   }
 
   address {

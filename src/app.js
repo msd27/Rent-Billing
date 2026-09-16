@@ -130,6 +130,97 @@ function extractReadingFromText(text) {
   return matches.reduce((longest, current) => (current.length > longest.length ? current : longest));
 }
 
+const GREEN_MIN_BRIGHTNESS = 90;
+const GREEN_MIN_DOMINANCE = 30;
+const GREEN_MIN_PIXELS = 200;
+const GREEN_MIN_AREA_FRACTION = 0.03;
+const GREEN_CROP_PADDING_X = 0.06;
+const GREEN_CROP_PADDING_Y = 0.15;
+const GREEN_CROP_UPSCALE = 3;
+
+function isDisplayGreen(r, g, b) {
+  return g > GREEN_MIN_BRIGHTNESS && g - r > GREEN_MIN_DOMINANCE && g - b > GREEN_MIN_DOMINANCE;
+}
+
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+async function cropToDisplayRegion(dataUrl) {
+  let img;
+  try {
+    img = await loadImage(dataUrl);
+  } catch {
+    return dataUrl;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch {
+    return dataUrl;
+  }
+
+  const { data, width, height } = imageData;
+  const step = 2;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  let greenCount = 0;
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const i = (y * width + x) * 4;
+      if (isDisplayGreen(data[i], data[i + 1], data[i + 2])) {
+        greenCount += 1;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  const regionWidth = maxX - minX;
+  const regionHeight = maxY - minY;
+  const hasEnoughSignal =
+    greenCount >= GREEN_MIN_PIXELS &&
+    regionWidth > 0 &&
+    regionHeight > 0 &&
+    (regionWidth * regionHeight) / (width * height) >= GREEN_MIN_AREA_FRACTION;
+
+  if (!hasEnoughSignal) {
+    return dataUrl;
+  }
+
+  const padX = regionWidth * GREEN_CROP_PADDING_X;
+  const padY = regionHeight * GREEN_CROP_PADDING_Y;
+  const cropX = Math.max(0, minX - padX);
+  const cropY = Math.max(0, minY - padY);
+  const cropW = Math.min(width - cropX, regionWidth + padX * 2);
+  const cropH = Math.min(height - cropY, regionHeight + padY * 2);
+
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = cropW * GREEN_CROP_UPSCALE;
+  cropCanvas.height = cropH * GREEN_CROP_UPSCALE;
+  const cropCtx = cropCanvas.getContext("2d");
+  cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropCanvas.width, cropCanvas.height);
+
+  return cropCanvas.toDataURL("image/png");
+}
+
 async function runOcr(dataUrl, targetId) {
   const status = document.getElementById(`${targetId}OcrStatus`);
   if (status) {
@@ -137,10 +228,11 @@ async function runOcr(dataUrl, targetId) {
   }
 
   try {
+    const displayDataUrl = await cropToDisplayRegion(dataUrl);
     const worker = await getOcrWorker();
     const {
       data: { text },
-    } = await worker.recognize(dataUrl);
+    } = await worker.recognize(displayDataUrl);
     const reading = extractReadingFromText(text);
 
     if (reading !== null) {
