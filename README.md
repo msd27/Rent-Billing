@@ -16,17 +16,23 @@ sharing one codebase.
 ## Features
 
 - Same invoice form/fields as the original web version.
+- On mobile, the invoice preview is pinned to the top of the screen (scaled
+  to fit, no scrolling needed) with the form scrollable below it.
+- Focusing a form field lights up the matching section of the invoice with
+  a neon border, so it's obvious what you're about to change.
 - Tapping any of the 4 image fields (current meter, previous meter, QR,
   signature) opens the native "Take Photo / Choose from Gallery" prompt.
 - After capturing the current or previous meter photo, on-device OCR
-  (Tesseract.js) attempts to read the meter digits and pre-fills the
-  reading field — always double-check the detected number before relying
-  on it, meter photos are not always read perfectly.
+  (Tesseract.js) crops to just the meter's green LCD display, binarizes it
+  for contrast, and reads the digits to pre-fill the reading field — always
+  double-check the detected number before relying on it, meter photos
+  aren't always read perfectly.
 - All form fields and images persist locally (via `@capacitor/preferences`)
   so you don't need to retype everything each billing cycle.
-- "Download A4 PDF" renders the invoice to a PDF client-side (jsPDF +
-  html2canvas). On the Android app it opens the native share sheet; in a
-  browser it downloads the file directly.
+- "Preview PDF" renders the invoice to an image first so you can check it
+  before committing to anything; "Save / Share PDF" in that preview then
+  builds the actual PDF (jsPDF + html2canvas) and opens the native share
+  sheet on Android, or downloads it directly in a browser.
 
 ## Working on the web app only
 
@@ -77,6 +83,10 @@ running again.
 - OCR runs fully on-device but Tesseract.js downloads its language/model
   data from a CDN the first time it runs, so the very first OCR attempt
   needs an internet connection; after that it's cached.
-- Meter-reading OCR is a best-effort heuristic (longest digit run found in
-  the photo) — always review the detected value before generating the bill.
+- Meter-reading OCR crops to the display's green backlight before reading
+  digits, but it's still a best-effort heuristic — always review the
+  detected value before generating the bill. If it's consistently wrong on
+  your meter's photos, the green-detection thresholds in
+  `src/app.js` (`GREEN_MIN_BRIGHTNESS`, `GREEN_MIN_DOMINANCE`) may need
+  tuning to your meter's actual backlight color and lighting conditions.
 - App icon and splash screen are still Capacitor's defaults.

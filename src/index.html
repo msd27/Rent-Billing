@@ -14,7 +14,7 @@
             <p class="eyebrow">Rent Billing</p>
             <h1>Invoice Builder</h1>
           </div>
-          <button id="printBtn" class="primary-btn" type="button">Download A4 PDF</button>
+          <button id="printBtn" class="primary-btn" type="button">Preview PDF</button>
         </div>
 
         <div class="control-grid">
@@ -107,11 +107,11 @@ GOALPARA, ASSAM-783124</textarea>
       <section class="preview-wrap" aria-label="Invoice preview">
         <article id="invoice" class="invoice">
           <header class="invoice-top">
-            <div class="invoice-title">
+            <div class="invoice-title" data-highlight="title">
               <p>INVOICE</p>
               <h2><span data-out="room"></span> : <span data-out="tenant"></span> | <span data-out="billingMonth"></span></h2>
             </div>
-            <div class="payment-box">
+            <div class="payment-box" data-highlight="payment">
               <div id="qrPreview" class="qr-placeholder">QR</div>
               <p>UPI ID: <span data-out="upi"></span></p>
             </div>
@@ -119,16 +119,16 @@ GOALPARA, ASSAM-783124</textarea>
 
           <section class="photo-address-row">
             <div class="meter-photos">
-              <figure class="meter-card">
+              <figure class="meter-card" data-highlight="photo-current">
                 <div id="currentImagePreview" class="image-placeholder">Add current meter image</div>
                 <figcaption data-out="currentDate"></figcaption>
               </figure>
-              <figure class="meter-card">
+              <figure class="meter-card" data-highlight="photo-previous">
                 <div id="previousImagePreview" class="image-placeholder">Add previous meter image</div>
                 <figcaption data-out="previousDate"></figcaption>
               </figure>
             </div>
-            <address>
+            <address data-highlight="address">
               <strong>ADDRESS:</strong>
               <span data-out="address"></span>
             </address>
@@ -137,35 +137,35 @@ GOALPARA, ASSAM-783124</textarea>
           <table class="bill-table">
             <tbody>
               <tr>
-                <th>
+                <th data-highlight="row-units">
                   Meter Reading Subtraction with Previous month
                   <span class="as">(পূৰ্বৱৰ্তী মাহৰ সৈতে মিটাৰ ৰিডিঙৰ বিয়োগ)</span>
                 </th>
-                <td>= <span data-out="currentReading"></span>-<span data-out="previousReading"></span> = <span data-out="units"></span>(kWh)units</td>
+                <td data-highlight="row-units">= <span data-out="currentReading"></span>-<span data-out="previousReading"></span> = <span data-out="units"></span>(kWh)units</td>
               </tr>
               <tr>
-                <th>
+                <th data-highlight="row-energy">
                   Energy Charges
                   <span class="as">(বিদ্যুতৰ খৰচ)</span>
                 </th>
-                <td>
+                <td data-highlight="row-energy">
                   = <span data-out="units"></span>kWh * <span data-out="rate"></span>(rate per unit)<br />
                   = <span data-out="energyCharge"></span> /-
                 </td>
               </tr>
               <tr>
-                <th>
+                <th data-highlight="row-rent">
                   Room Rent
                   <span class="as">(কোঠাৰ ভাড়া)</span>
                 </th>
-                <td>= <span data-out="rent"></span> /-</td>
+                <td data-highlight="row-rent">= <span data-out="rent"></span> /-</td>
               </tr>
               <tr>
-                <th>
+                <th data-highlight="row-total">
                   Total
                   <span class="as">(সৰ্বমুঠ)</span>
                 </th>
-                <td>
+                <td data-highlight="row-total">
                   = <span data-out="rent"></span> + <span data-out="energyCharge"></span><span data-out="deductionFormula"></span><span data-out="otherFormula"></span><br />
                   = <span data-out="total"></span>/-
                 </td>
@@ -174,7 +174,7 @@ GOALPARA, ASSAM-783124</textarea>
           </table>
 
           <footer class="invoice-footer">
-            <p>Other charges <span class="as">(অন্য খৰচ)</span> = <span data-out="otherCharges"></span></p>
+            <p data-highlight="row-other">Other charges <span class="as">(অন্য খৰচ)</span> = <span data-out="otherCharges"></span></p>
             <div class="cut-line">------------------------------******------------------------------</div>
             <div class="signature-block">
               <div id="signaturePreview" class="signature-placeholder">Upload signature</div>
@@ -185,6 +185,21 @@ GOALPARA, ASSAM-783124</textarea>
         </article>
       </section>
     </main>
+
+    <div id="pdfPreviewOverlay" class="pdf-preview-overlay" hidden>
+      <div class="pdf-preview-panel">
+        <div class="pdf-preview-header">
+          <span>Invoice preview</span>
+          <button id="pdfPreviewClose" class="secondary-btn" type="button">Close</button>
+        </div>
+        <div class="pdf-preview-body">
+          <img id="pdfPreviewImage" alt="Generated invoice preview" />
+        </div>
+        <div class="pdf-preview-actions">
+          <button id="pdfPreviewConfirm" class="primary-btn" type="button">Save / Share PDF</button>
+        </div>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>

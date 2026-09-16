@@ -3,7 +3,7 @@ import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Preferences } from "@capacitor/preferences";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { createWorker } from "tesseract.js";
+import { createWorker, PSM } from "tesseract.js";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -29,6 +29,22 @@ const images = [
   { inputId: "qrImage", previewId: "qrPreview", ocrTargetId: null },
   { inputId: "signatureImage", previewId: "signaturePreview", ocrTargetId: null },
 ];
+
+const fieldHighlightTargets = {
+  room: ["title"],
+  tenant: ["title"],
+  billingMonth: ["title"],
+  upi: ["payment"],
+  address: ["address"],
+  currentReading: ["row-units"],
+  previousReading: ["row-units"],
+  rate: ["row-energy"],
+  rent: ["row-rent", "row-total"],
+  deduction: ["row-total"],
+  otherCharges: ["row-total", "row-other"],
+  currentDate: ["photo-current"],
+  previousDate: ["photo-previous"],
+};
 
 const money = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
@@ -98,11 +114,27 @@ async function loadSavedFields() {
   );
 }
 
+function highlightTargetsFor(id) {
+  const groups = fieldHighlightTargets[id];
+  if (!groups || groups.length === 0) {
+    return [];
+  }
+  const selector = groups.map((key) => `[data-highlight="${key}"]`).join(",");
+  return document.querySelectorAll(selector);
+}
+
 function attachFieldPersistence() {
   fields.forEach((id) => {
-    document.getElementById(id).addEventListener("input", () => {
+    const el = document.getElementById(id);
+    el.addEventListener("input", () => {
       renderInvoice();
-      Preferences.set({ key: fieldKey(id), value: document.getElementById(id).value });
+      Preferences.set({ key: fieldKey(id), value: el.value });
+    });
+    el.addEventListener("focus", () => {
+      highlightTargetsFor(id).forEach((node) => node.classList.add("neon-highlight"));
+    });
+    el.addEventListener("blur", () => {
+      highlightTargetsFor(id).forEach((node) => node.classList.remove("neon-highlight"));
     });
   });
 }
@@ -118,6 +150,10 @@ function setPreviewImage(preview, inputId, source) {
 async function getOcrWorker() {
   if (!ocrWorker) {
     ocrWorker = await createWorker("eng");
+    await ocrWorker.setParameters({
+      tessedit_char_whitelist: "0123456789",
+      tessedit_pageseg_mode: PSM.SINGLE_LINE,
+    });
   }
   return ocrWorker;
 }
@@ -140,6 +176,22 @@ const GREEN_CROP_UPSCALE = 3;
 
 function isDisplayGreen(r, g, b) {
   return g > GREEN_MIN_BRIGHTNESS && g - r > GREEN_MIN_DOMINANCE && g - b > GREEN_MIN_DOMINANCE;
+}
+
+function binarizeDisplayCanvas(canvas) {
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data } = imageData;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const isBacklight = isDisplayGreen(data[i], data[i + 1], data[i + 2]);
+    const value = isBacklight ? 255 : 0;
+    data[i] = value;
+    data[i + 1] = value;
+    data[i + 2] = value;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
 }
 
 function loadImage(dataUrl) {
@@ -217,6 +269,7 @@ async function cropToDisplayRegion(dataUrl) {
   cropCanvas.height = cropH * GREEN_CROP_UPSCALE;
   const cropCtx = cropCanvas.getContext("2d");
   cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropCanvas.width, cropCanvas.height);
+  binarizeDisplayCanvas(cropCanvas);
 
   return cropCanvas.toDataURL("image/png");
 }
@@ -295,66 +348,104 @@ function fitInvoiceToViewport() {
   const invoice = document.getElementById("invoice");
   const naturalWidth = 1123;
 
+  invoice.style.transform = "";
+
   if (window.innerWidth > 900) {
-    invoice.style.transform = "";
-    invoice.style.marginBottom = "";
     return;
   }
 
-  const scale = Math.min(1, (wrap.clientWidth - 24) / naturalWidth);
-  invoice.style.transformOrigin = "top left";
+  const naturalHeight = invoice.offsetHeight;
+  const availableWidth = wrap.clientWidth - 24;
+  const availableHeight = wrap.clientHeight - 24;
+  const scale = Math.min(1, availableWidth / naturalWidth, availableHeight / naturalHeight);
+
+  invoice.style.transformOrigin = "center center";
   invoice.style.transform = `scale(${scale})`;
-  invoice.style.marginBottom = `${invoice.offsetHeight * (scale - 1)}px`;
 }
 
-async function exportPdf() {
-  const printBtn = document.getElementById("printBtn");
+let pendingCanvas = null;
+
+async function renderInvoiceCanvas() {
   const invoice = document.getElementById("invoice");
   const previousTransform = invoice.style.transform;
-  const previousMargin = invoice.style.marginBottom;
-
-  printBtn.disabled = true;
-  printBtn.textContent = "Generating…";
   invoice.style.transform = "";
-  invoice.style.marginBottom = "";
 
   try {
     refreshGeneratedAt();
     renderInvoice();
-
-    const canvas = await html2canvas(invoice, { scale: 2, useCORS: true });
-    const imgData = canvas.toDataURL("image/jpeg", 0.92);
-
-    const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-    const width = canvas.width * ratio;
-    const height = canvas.height * ratio;
-    const x = (pageWidth - width) / 2;
-    const y = (pageHeight - height) / 2;
-
-    pdf.addImage(imgData, "JPEG", x, y, width, height);
-
-    const room = document.getElementById("room").value || "invoice";
-    const month = document.getElementById("billingMonth").value || "";
-    const fileName = `${room}-${month}`.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "") + ".pdf";
-
-    if (Capacitor.isNativePlatform()) {
-      const base64 = pdf.output("datauristring").split(",")[1];
-      await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
-      const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
-      await Share.share({ title: "Rent Invoice", url: uri });
-    } else {
-      pdf.save(fileName);
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
     }
+    return await html2canvas(invoice, { scale: 2, useCORS: true });
+  } finally {
+    invoice.style.transform = previousTransform;
+  }
+}
+
+async function buildAndSharePdf(canvas) {
+  const imgData = canvas.toDataURL("image/jpeg", 0.92);
+  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+  const width = canvas.width * ratio;
+  const height = canvas.height * ratio;
+  const x = (pageWidth - width) / 2;
+  const y = (pageHeight - height) / 2;
+
+  pdf.addImage(imgData, "JPEG", x, y, width, height);
+
+  const room = document.getElementById("room").value || "invoice";
+  const month = document.getElementById("billingMonth").value || "";
+  const fileName = `${room}-${month}`.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "") + ".pdf";
+
+  if (Capacitor.isNativePlatform()) {
+    const base64 = pdf.output("datauristring").split(",")[1];
+    await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+    const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
+    await Share.share({ title: "Rent Invoice", url: uri });
+  } else {
+    pdf.save(fileName);
+  }
+}
+
+async function openPdfPreview() {
+  const printBtn = document.getElementById("printBtn");
+  printBtn.disabled = true;
+  printBtn.textContent = "Generating…";
+
+  try {
+    pendingCanvas = await renderInvoiceCanvas();
+    document.getElementById("pdfPreviewImage").src = pendingCanvas.toDataURL("image/jpeg", 0.92);
+    document.getElementById("pdfPreviewOverlay").hidden = false;
+  } catch (error) {
+    console.error("Failed to render invoice preview", error);
+  } finally {
+    printBtn.disabled = false;
+    printBtn.textContent = "Preview PDF";
+  }
+}
+
+function closePdfPreview() {
+  document.getElementById("pdfPreviewOverlay").hidden = true;
+}
+
+async function confirmPdfExport() {
+  if (!pendingCanvas) {
+    return;
+  }
+  const confirmBtn = document.getElementById("pdfPreviewConfirm");
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Saving…";
+
+  try {
+    await buildAndSharePdf(pendingCanvas);
+    closePdfPreview();
   } catch (error) {
     console.error("PDF export failed", error);
   } finally {
-    invoice.style.transform = previousTransform;
-    invoice.style.marginBottom = previousMargin;
-    printBtn.disabled = false;
-    printBtn.textContent = "Download A4 PDF";
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = "Save / Share PDF";
   }
 }
 
@@ -363,7 +454,9 @@ async function init() {
   attachFieldPersistence();
   images.forEach(attachImageCapture);
 
-  document.getElementById("printBtn").addEventListener("click", exportPdf);
+  document.getElementById("printBtn").addEventListener("click", openPdfPreview);
+  document.getElementById("pdfPreviewClose").addEventListener("click", closePdfPreview);
+  document.getElementById("pdfPreviewConfirm").addEventListener("click", confirmPdfExport);
   window.addEventListener("resize", fitInvoiceToViewport);
 
   refreshGeneratedAt();

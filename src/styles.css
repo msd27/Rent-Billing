@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "Noto Sans Bengali";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/noto-sans-bengali-bengali-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans Bengali";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/noto-sans-bengali-bengali-700-normal.woff2") format("woff2");
+}
+
 :root {
   --ink: #111111;
   --muted: #5c6670;
@@ -152,6 +168,73 @@ textarea {
   font-size: 12px;
   font-weight: 600;
   min-height: 14px;
+}
+
+.neon-highlight {
+  border-radius: 4px;
+  box-shadow:
+    0 0 0 2px #39ff14,
+    0 0 10px 3px rgba(57, 255, 20, 0.85),
+    0 0 24px 6px rgba(57, 255, 20, 0.5);
+  position: relative;
+  transition: box-shadow 0.15s ease;
+  z-index: 1;
+}
+
+.pdf-preview-overlay {
+  align-items: center;
+  background: rgba(10, 15, 14, 0.72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.pdf-preview-overlay[hidden] {
+  display: none;
+}
+
+.pdf-preview-panel {
+  background: var(--paper);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+  max-width: 960px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.pdf-preview-header {
+  align-items: center;
+  border-bottom: 1px solid #dde3e6;
+  display: flex;
+  font-weight: 800;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.pdf-preview-body {
+  background: #e9edee;
+  overflow: auto;
+  padding: 16px;
+}
+
+.pdf-preview-body img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.pdf-preview-actions {
+  border-top: 1px solid #dde3e6;
+  padding: 12px 16px;
+}
+
+.pdf-preview-actions .primary-btn {
+  width: 100%;
 }
 
 .preview-wrap {
@@ -363,17 +446,39 @@ address {
 }
 
 @media (max-width: 1100px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   .app-shell {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
   }
 
   .controls {
     border-right: 0;
     border-bottom: 1px solid #c8d0d4;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .preview-wrap {
-    padding: 18px;
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    height: 46vh;
+    height: 46dvh;
+    justify-content: center;
+    order: -1;
+    overflow: hidden;
+    padding: 12px;
   }
 }
 
@@ -393,11 +498,6 @@ address {
 
   .primary-btn {
     width: 100%;
-  }
-
-  .preview-wrap {
-    overflow-x: hidden;
-    padding: 12px;
   }
 }
 
