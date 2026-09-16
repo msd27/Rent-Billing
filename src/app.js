@@ -3,7 +3,7 @@ import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Preferences } from "@capacitor/preferences";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { createWorker, PSM } from "tesseract.js";
+import { createWorker, PSM, OEM } from "tesseract.js";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -147,9 +147,25 @@ function setPreviewImage(preview, inputId, source) {
   preview.appendChild(image);
 }
 
+const OCR_TIMEOUT_MS = 25000;
+
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function getOcrWorker() {
   if (!ocrWorker) {
-    ocrWorker = await createWorker("eng");
+    const workerPromise = createWorker("eng", OEM.LSTM_ONLY, {
+      workerPath: "/tesseract/worker.min.js",
+      corePath: "/tesseract/tesseract-core-lstm.wasm.js",
+      langPath: "/tesseract/lang-data",
+      workerBlobURL: false,
+    });
+    ocrWorker = await withTimeout(workerPromise, OCR_TIMEOUT_MS, "Timed out starting the OCR engine");
     await ocrWorker.setParameters({
       tessedit_char_whitelist: "0123456789",
       tessedit_pageseg_mode: PSM.SINGLE_LINE,
@@ -285,7 +301,7 @@ async function runOcr(dataUrl, targetId) {
     const worker = await getOcrWorker();
     const {
       data: { text },
-    } = await worker.recognize(displayDataUrl);
+    } = await withTimeout(worker.recognize(displayDataUrl), OCR_TIMEOUT_MS, "Timed out reading the photo");
     const reading = extractReadingFromText(text);
 
     if (reading !== null) {
@@ -302,7 +318,8 @@ async function runOcr(dataUrl, targetId) {
   } catch (error) {
     console.error("OCR failed", error);
     if (status) {
-      status.textContent = "OCR failed — please enter manually";
+      const reason = error && error.message ? error.message : "OCR failed";
+      status.textContent = `${reason} — please enter manually`;
     }
   }
 }

@@ -23,10 +23,11 @@ sharing one codebase.
 - Tapping any of the 4 image fields (current meter, previous meter, QR,
   signature) opens the native "Take Photo / Choose from Gallery" prompt.
 - After capturing the current or previous meter photo, on-device OCR
-  (Tesseract.js) crops to just the meter's green LCD display, binarizes it
-  for contrast, and reads the digits to pre-fill the reading field — always
-  double-check the detected number before relying on it, meter photos
-  aren't always read perfectly.
+  (Tesseract.js, fully self-hosted — no CDN calls, works offline) crops to
+  just the meter's green LCD display, binarizes it for contrast, and reads
+  the digits to pre-fill the reading field — always double-check the
+  detected number before relying on it, meter photos aren't always read
+  perfectly.
 - All form fields and images persist locally (via `@capacitor/preferences`)
   so you don't need to retype everything each billing cycle.
 - "Preview PDF" renders the invoice to an image first so you can check it
@@ -80,9 +81,12 @@ running again.
 
 ## Known limitations / next steps
 
-- OCR runs fully on-device but Tesseract.js downloads its language/model
-  data from a CDN the first time it runs, so the very first OCR attempt
-  needs an internet connection; after that it's cached.
+- OCR's worker script, WASM core, and English language data are all bundled
+  locally under `www/tesseract/` (copied from `node_modules` by
+  `esbuild.config.js`) instead of fetched from a CDN, so it works fully
+  offline with no network dependency. If OCR ever hangs or times out
+  (25s), check Android Studio's Logcat for the actual error rather than
+  assuming it's a network issue.
 - Meter-reading OCR crops to the display's green backlight before reading
   digits, but it's still a best-effort heuristic — always review the
   detected value before generating the bill. If it's consistently wrong on
