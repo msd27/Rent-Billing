@@ -39,12 +39,12 @@ sharing one codebase.
   sheet on Android, or downloads it directly in a browser.
 - A "Copy" button next to the UPI ID copies it to the clipboard (falls back
   to a hidden-textarea `execCommand("copy")` if the Clipboard API isn't
-  available). Excluded from the PDF export, same as the Pay via UPI button.
-- "Pay via UPI" (next to the QR code, and in the PDF preview) opens a
-  `upi://pay` deep link pre-filled with the UPI ID, owner name, computed
-  total, and a note — Android hands this to whichever UPI apps are
-  installed (Google Pay, PhonePe, etc.) as an app chooser. This only works
-  as a live button inside the app; it can't be embedded as a clickable
+  available). Excluded from the PDF export.
+- "Pay via UPI" (in the PDF preview) opens a `upi://pay` deep link
+  pre-filled with the UPI ID, owner name, computed total, and a note —
+  Android hands this to whichever UPI apps are installed (Google Pay,
+  PhonePe, etc.) as an app chooser. This only works as a live button
+  inside the app; it can't be embedded as a clickable
   "app launcher" in the exported PDF file itself, since a flattened image
   in a PDF has nothing to click.
 - Meter photo boxes are a fixed, uniform size (both the same, regardless of

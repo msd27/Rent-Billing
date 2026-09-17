@@ -544,7 +544,7 @@ async function renderInvoiceCanvas() {
     return await html2canvas(invoice, {
       scale: 2,
       useCORS: true,
-      ignoreElements: (el) => el.id === "payUpiBtn" || el.id === "copyUpiBtn",
+      ignoreElements: (el) => el.id === "copyUpiBtn",
     });
   } finally {
     invoice.style.transform = previousTransform;
@@ -704,7 +704,6 @@ async function init() {
   document.getElementById("printBtn").addEventListener("click", openPdfPreview);
   document.getElementById("pdfPreviewClose").addEventListener("click", closePdfPreview);
   document.getElementById("pdfPreviewConfirm").addEventListener("click", confirmPdfExport);
-  document.getElementById("payUpiBtn").addEventListener("click", payWithUpi);
   document.getElementById("pdfPreviewPayBtn").addEventListener("click", payWithUpi);
   document.getElementById("copyUpiBtn").addEventListener("click", copyUpiId);
   document.getElementById("ocrDebugClose").addEventListener("click", closeOcrDebugImage);
