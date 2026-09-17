@@ -320,10 +320,35 @@ textarea {
   text-align: center;
 }
 
-.invoice-title p {
-  font-size: 30px;
+.invoice-title-inner {
+  /* Shrink-wraps to the actual heading/title text (text-align:center on
+     the parent still centers it within the full row) instead of
+     stretching to the parent's full width — .invoice-title reserves
+     230px of padding-right for the payment box, and the old
+     data-highlight="title" target was that full-width parent, so its
+     neon-highlight outline stretched straight across underneath the QR
+     code instead of hugging just the title text. */
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.invoice-heading {
+  align-items: center;
+  color: var(--accent-dark);
+  display: flex;
+  font-size: 32px;
+  font-weight: 800;
+  gap: 10px;
+  justify-content: center;
+  letter-spacing: 0.14em;
   line-height: 1;
   margin: 0 0 8px;
+}
+
+.invoice-heading-logo {
+  flex: 0 0 auto;
+  height: 34px;
+  width: 34px;
 }
 
 .invoice-title h2 {
@@ -353,7 +378,7 @@ textarea {
 
 .payment-box p {
   color: #444;
-  font-size: 14px;
+  font-size: 13px;
   margin: 8px 0 0;
   overflow-wrap: anywhere;
 }
@@ -361,9 +386,16 @@ textarea {
 .upi-id-row {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   justify-content: center;
+}
+
+.upi-id-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .copy-upi-btn {
@@ -372,6 +404,7 @@ textarea {
   border-radius: 4px;
   color: #1f6f5c;
   cursor: pointer;
+  flex: 0 0 auto;
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
@@ -446,6 +479,7 @@ textarea {
 
 address {
   border: 1px solid var(--line);
+  border-radius: 10px;
   font-size: 20px;
   font-style: normal;
   line-height: 1.35;
@@ -454,11 +488,21 @@ address {
   white-space: pre-line;
 }
 
+.bill-table-wrap {
+  /* border-radius on a border-collapse:collapse table is unreliable
+     across browsers (the collapsed cell borders bypass the table's own
+     box-model rounding) — wrapping it and clipping with overflow:hidden
+     is the standard, reliable way to get rounded corners here. */
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+
 .bill-table {
   border-collapse: collapse;
   font-size: 27px;
   line-height: 1.25;
-  margin-top: 14px;
   table-layout: fixed;
   width: 100%;
 }

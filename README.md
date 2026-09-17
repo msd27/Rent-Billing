@@ -23,7 +23,14 @@ sharing one codebase.
   the on-screen keyboard to edit a field doesn't shrink it — only a real
   width change (rotating the device) re-fits it.
 - Focusing a form field lights up the matching section of the invoice with
-  a neon border, so it's obvious what you're about to change.
+  a neon border, so it's obvious what you're about to change. The
+  highlight targets an inner wrapper sized to the actual title text
+  (`.invoice-title-inner`), not the `.invoice-title` container itself —
+  that container reserves 230px of padding for the payment box next to
+  it, and highlighting it directly used to stretch the glow box straight
+  across underneath the QR code.
+- The invoice heading carries the app's house-in-a-tag logo next to a
+  bolder, letter-spaced "INVOICE".
 - Tapping the current/previous meter image fields opens the native "Take
   Photo / Choose from Gallery" prompt (via `@capacitor/camera`). The QR and
   signature fields use a plain file picker instead (see below for why) —
@@ -45,7 +52,16 @@ sharing one codebase.
   invoice, below the signature.
 - A "Copy" button next to the UPI ID copies it to the clipboard (falls back
   to a hidden-textarea `execCommand("copy")` if the Clipboard API isn't
-  available). Excluded from the PDF export.
+  available). Excluded from the PDF export. The UPI ID and the button sit
+  on one line — the ID truncates with an ellipsis if it doesn't fit rather
+  than wrapping the button to its own line; copying still uses the full
+  underlying value, not the truncated display text.
+- The billing table and address box have rounded corners. The table uses
+  `border-collapse: collapse`, which doesn't reliably support
+  `border-radius` directly (the collapsed cell borders bypass the table's
+  own box-model rounding in most browsers) — it's wrapped in a
+  `.bill-table-wrap` with `overflow: hidden` instead, the standard
+  workaround.
 - "Pay via UPI" (in the PDF preview) opens a `upi://pay` deep link
   pre-filled with the UPI ID, owner name, computed total, and a note —
   Android hands this to whichever UPI apps are installed (Google Pay,
@@ -152,8 +168,9 @@ running again.
   transparent) sits over a flat blue background
   (`values/ic_launcher_background.xml`) so it isn't clipped oddly by
   circular/squircle launcher masks. The same mark appears as a small badge
-  next to "Rent Billing" in the web header (`.brand-logo` in
-  `src/index.html`). Splash screen is still Capacitor's default.
+  next to "Rent Billing" in the web header (`.brand-logo`) and again next
+  to "INVOICE" on the invoice itself (`.invoice-heading-logo`), both in
+  `src/index.html`. Splash screen is still Capacitor's default.
 - QR and signature images with a transparent background used to render with
   a solid black fill instead of transparency. Root cause: `@capacitor/camera`
   always re-encodes its result as JPEG (`Bitmap.CompressFormat.JPEG` is

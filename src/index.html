@@ -119,14 +119,28 @@ GOALPARA, ASSAM-783124</textarea>
       <section class="preview-wrap" aria-label="Invoice preview">
         <article id="invoice" class="invoice">
           <header class="invoice-top">
-            <div class="invoice-title" data-highlight="title">
-              <p>INVOICE</p>
-              <h2><span data-out="room"></span> : <span data-out="tenant"></span> | <span data-out="billingMonth"></span></h2>
+            <div class="invoice-title">
+              <div class="invoice-title-inner" data-highlight="title">
+                <p class="invoice-heading">
+                  <svg class="invoice-heading-logo" viewBox="0 0 220 220" aria-hidden="true" focusable="false">
+                    <ellipse cx="152" cy="40" rx="20" ry="14" fill="none" stroke="#111" stroke-width="7" transform="rotate(28 152 40)"></ellipse>
+                    <rect x="45" y="45" width="130" height="130" rx="26" fill="#0075be" transform="rotate(45 110 110)"></rect>
+                    <circle cx="152" cy="66" r="8.5" fill="#fff"></circle>
+                    <g transform="translate(55,74) scale(0.85)">
+                      <path d="M62 6 L114 50 L98 50 L98 104 L76 104 L76 76 L54 76 L54 104 L30 104 L30 50 L14 50 Z" fill="#fff"></path>
+                      <rect x="52" y="32" width="10" height="10" fill="#0075be"></rect>
+                      <rect x="66" y="32" width="10" height="10" fill="#0075be"></rect>
+                    </g>
+                  </svg>
+                  <span>INVOICE</span>
+                </p>
+                <h2><span data-out="room"></span> : <span data-out="tenant"></span> | <span data-out="billingMonth"></span></h2>
+              </div>
             </div>
             <div class="payment-box" data-highlight="payment">
               <div id="qrPreview" class="qr-placeholder">QR</div>
               <p class="upi-id-row">
-                UPI ID: <span data-out="upi"></span>
+                <span class="upi-id-value" data-out="upi"></span>
                 <button id="copyUpiBtn" class="copy-upi-btn" type="button" aria-label="Copy UPI ID">Copy</button>
               </p>
             </div>
@@ -149,6 +163,7 @@ GOALPARA, ASSAM-783124</textarea>
             </address>
           </section>
 
+          <div class="bill-table-wrap">
           <table class="bill-table">
             <tbody>
               <tr>
@@ -187,6 +202,7 @@ GOALPARA, ASSAM-783124</textarea>
               </tr>
             </tbody>
           </table>
+          </div>
 
           <footer class="invoice-footer">
             <p data-highlight="row-other">Other charges <span class="as">(অন্য খৰচ)</span> = <span data-out="otherCharges"></span></p>
