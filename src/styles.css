@@ -160,12 +160,6 @@ textarea {
   resize: vertical;
 }
 
-#currentDate,
-#previousDate {
-  font-size: 19px;
-  font-weight: 700;
-}
-
 .control-grid,
 .uploads {
   display: grid;
@@ -578,7 +572,8 @@ textarea {
 
 .meter-card figcaption {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 19px;
+  font-weight: 700;
   line-height: 1.3;
   margin-top: 6px;
   text-align: center;
@@ -650,6 +645,7 @@ address {
 .cut-line {
   font-family: Arial, sans-serif;
   letter-spacing: 0;
+  margin-top: 14px;
   text-align: center;
 }
 
@@ -756,12 +752,16 @@ address {
 
   /* When the keyboard is open (see updateKeyboardState in app.js), the
      fixed-height header + preview no longer leave enough of the actually
-     shrunk viewport for the form to be usable. Hiding the preview hands
-     that space straight back to .controls (still flex:1 1 auto) instead
-     of trying to shrink the preview proportionally — simpler and doesn't
-     reintroduce the jumpy mid-edit resizing lockViewportHeight avoids. */
+     shrunk viewport for the form to be usable. Shrinking the preview to a
+     small fixed height (rather than the usual --app-vh-based percentage)
+     hands most of that space back to .controls (still flex:1 1 auto)
+     while keeping the invoice visible — app.js re-runs
+     fitInvoiceToViewport() right after this class toggles so the invoice
+     itself rescales down to match instead of just getting clipped.
+     A fixed px value (not another --app-vh percentage) keeps this
+     independent of exactly how much space the keyboard ate. */
   html.keyboard-open .preview-wrap {
-    display: none;
+    height: 140px;
   }
 }
 

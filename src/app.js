@@ -572,17 +572,26 @@ function updateKeyboardState() {
   // lockViewportHeight, deliberately not live) so it doesn't jump around
   // while typing — but that means when the keyboard actually eats real
   // space, the fixed-height header + preview no longer leave enough room
-  // for the scrollable form, collapsing it to nothing. Detecting the
-  // keyboard and hiding the preview (a plain class toggle, not more
-  // viewport math) hands that space back to the form, which is what's
-  // actually being edited.
+  // for the scrollable form. Detecting the keyboard and shrinking the
+  // preview (a plain class toggle to a much smaller fixed height, plus a
+  // rescale) hands most of that space back to the form while keeping the
+  // invoice visible rather than hiding it outright.
   if (window.innerWidth > 1100) {
+    const wasOpen = document.documentElement.classList.contains("keyboard-open");
     document.documentElement.classList.remove("keyboard-open");
+    if (wasOpen) {
+      fitInvoiceToViewport();
+    }
     return;
   }
   const fullHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-vh")) || window.innerHeight;
   const currentHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  document.documentElement.classList.toggle("keyboard-open", fullHeight - currentHeight > 120);
+  const keyboardOpen = fullHeight - currentHeight > 120;
+  const wasOpen = document.documentElement.classList.contains("keyboard-open");
+  document.documentElement.classList.toggle("keyboard-open", keyboardOpen);
+  if (keyboardOpen !== wasOpen) {
+    fitInvoiceToViewport();
+  }
 }
 
 function fitInvoiceToViewport() {

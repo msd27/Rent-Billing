@@ -55,16 +55,19 @@ sharing one codebase.
   invoice preview's own height stays locked to the *pre-keyboard* full
   screen height (deliberately, so it doesn't shrink/jump mid-edit — see
   above), so once the keyboard actually eats real space, the fixed-height
-  header + preview left no room at all for the form, collapsing it to
-  nothing. `updateKeyboardState` in `src/app.js` detects the shrink (via
-  `visualViewport`, comparing against the locked `--app-vh`) and toggles
-  a `keyboard-open` class on `<html>`; CSS hides `.preview-wrap` while
-  that class is set, handing its space straight back to `.controls` so
-  the field being edited is always visible. The preview reappears as soon
-  as the keyboard closes.
-- The two meter-date fields (`#currentDate`, `#previousDate`) are set to
-  a larger, bolder font (19px/700) than the other inputs (13px, inherited
-  from their label) since they're easy to misread at the default size.
+  header + preview left too little room for the form. `updateKeyboardState`
+  in `src/app.js` detects the shrink (via `visualViewport`, comparing
+  against the locked `--app-vh`) and toggles a `keyboard-open` class on
+  `<html>`; CSS shrinks `.preview-wrap` to a small fixed height (rather
+  than hiding it) while that class is set, and `fitInvoiceToViewport()`
+  re-runs right after so the invoice itself rescales down to match instead
+  of getting clipped — the invoice stays visible, just smaller, and the
+  form gets the space it needs. It returns to full size as soon as the
+  keyboard closes.
+- The meter-date captions in the invoice itself (under the current/
+  previous meter photos, `.meter-card figcaption`) are set to a larger,
+  bolder font (19px/700, up from 13px) since they're easy to misread at
+  the default size. The form's own date inputs are unchanged.
 - Form fields have a tinted background and a soft inset shadow instead of
   a flat white box, and the four "Add photo" buttons are filled with a
   teal gradient (`.add-photo-btn`, layered on `.secondary-btn`) rather
@@ -114,7 +117,9 @@ sharing one codebase.
   builds the actual PDF (jsPDF + html2canvas) and opens the native share
   sheet on Android, or downloads it directly in a browser.
 - A small "Thank you for staying with us." note at the very bottom of the
-  invoice, below the signature.
+  invoice, below the signature. The `------******------` cut-line sits
+  directly above it (moved below the signature block, which used to come
+  after the cut-line instead).
 - A "Copy" button next to the UPI ID copies it to the clipboard (falls back
   to a hidden-textarea `execCommand("copy")` if the Clipboard API isn't
   available). Excluded from the PDF export. The UPI ID and the button sit
