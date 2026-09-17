@@ -419,6 +419,31 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function compositeOntoWhite(dataUrl) {
+  // Flatten any transparency onto an opaque white background ourselves,
+  // right when the file is picked. This is deliberately independent of
+  // *why* a transparent pixel might otherwise turn black downstream —
+  // whether that's a native re-encode dropping the alpha channel, or the
+  // PDF export's own canvas.toDataURL("image/jpeg") doing the same to
+  // whatever transparency is still there when it captures the invoice —
+  // by the time this image is stored, it has no alpha left to lose.
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => reject(new Error("Failed to load picked image"));
+    image.src = dataUrl;
+  });
+}
+
 function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) {
   const button = document.getElementById(`${inputId}Btn`);
   const preview = document.getElementById(previewId);
@@ -454,8 +479,9 @@ function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) 
       }
       try {
         const dataUrl = await readFileAsDataUrl(file);
-        setPreviewImage(preview, inputId, dataUrl);
-        await Preferences.set({ key: imageKey(inputId), value: dataUrl });
+        const flattened = await compositeOntoWhite(dataUrl);
+        setPreviewImage(preview, inputId, flattened);
+        await Preferences.set({ key: imageKey(inputId), value: flattened });
       } catch (error) {
         console.error("Image selection failed", error);
       }
@@ -554,6 +580,7 @@ async function renderInvoiceCanvas() {
     return await html2canvas(invoice, {
       scale: 2,
       useCORS: true,
+      backgroundColor: "#ffffff",
       ignoreElements: (el) => el.id === "copyUpiBtn",
     });
   } finally {

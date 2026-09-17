@@ -157,3 +157,13 @@ running again.
   untouched and preserves transparency. Meter photos still use
   `Camera.getPhoto` since they're live camera shots (no transparency
   involved) and benefit from the custom-labelled native prompt.
+  That fix turned out to be necessary but not sufficient: the PDF preview
+  and export both flatten the whole invoice to a JPEG
+  (`canvas.toDataURL("image/jpeg", …)`), which drops alpha the same way —
+  so any transparency that survived image capture still turned black the
+  moment you tapped "Preview PDF". Fixed properly by compositing every
+  picked QR/signature image onto an opaque white background ourselves,
+  right when the file is read (`compositeOntoWhite` in `src/app.js`),
+  instead of trying to keep transparency alive through every later step —
+  by the time the image is stored, there's no alpha channel left for
+  anything downstream to lose.
