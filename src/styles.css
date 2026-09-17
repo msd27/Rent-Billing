@@ -160,6 +160,12 @@ textarea {
   resize: vertical;
 }
 
+#currentDate,
+#previousDate {
+  font-size: 19px;
+  font-weight: 700;
+}
+
 .control-grid,
 .uploads {
   display: grid;

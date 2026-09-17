@@ -41,6 +41,20 @@ sharing one codebase.
   sticky inconsistently in a nested flex/overflow context), so field
   text was visibly poking out above it. Keeping bars structurally
   outside the scroll container's DOM avoids that whole class of bug.
+- Without `android:windowSoftInputMode="adjustResize"` on `MainActivity`
+  (`android/app/src/main/AndroidManifest.xml`), Android's default is to
+  *pan* the window up over the keyboard instead of resizing the WebView,
+  which made the fixed "Preview PDF" bar slide up and land on top of
+  whatever field the user was editing (worst on the last field, "Previous
+  meter date", with nothing below it to scroll past). `adjustResize`
+  makes the WebView's own height actually shrink by the keyboard's
+  height, so the CSS `100dvh` shell shrinks with it, `.control-fields`'s
+  scrollable area shrinks to match, and `.control-footer` stays pinned at
+  the (now-smaller) bottom of `.controls` — visible above the keyboard,
+  never over a field.
+- The two meter-date fields (`#currentDate`, `#previousDate`) are set to
+  a larger, bolder font (19px/700) than the other inputs (13px, inherited
+  from their label) since they're easy to misread at the default size.
 - Form fields have a tinted background and a soft inset shadow instead of
   a flat white box, and the four "Add photo" buttons are filled with a
   teal gradient (`.add-photo-btn`, layered on `.secondary-btn`) rather
