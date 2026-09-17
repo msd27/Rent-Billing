@@ -49,6 +49,12 @@ sharing one codebase.
   texture (an inline SVG `feTurbulence` noise filter, base64-encoded
   directly into the CSS `background-image` — no image asset to bundle)
   instead of a flat panel color.
+- That same paper-grain fill (flat color + noise image, shared via the
+  `--paper-bg-color`/`--paper-bg-image` custom properties) is also used
+  on `.app-header` and `body`, so the header bar and the page background
+  around the invoice preview read as one continuous surface with the form
+  panel — only the invoice itself (`.invoice`, always plain white) stands
+  out from it.
 - Focusing a form field lights up the matching section of the invoice with
   a neon border, so it's obvious what you're about to change. The
   highlight targets an inner wrapper sized to the actual title text

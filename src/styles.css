@@ -22,6 +22,11 @@
   --accent: #0f766e;
   --accent-dark: #0b4f4a;
   --paper: #ffffff;
+  /* Shared paper-grain fill (flat color + fractal-noise SVG grain) used
+     everywhere except the invoice itself, so the header, the form panel
+     and the area around the invoice preview all read as one surface. */
+  --paper-bg-color: #f2ede2;
+  --paper-bg-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44NSIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9Im1hdHJpeCIgdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjA1IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4=");
 }
 
 * {
@@ -32,7 +37,8 @@ body {
   margin: 0;
   color: var(--ink);
   font-family: Arial, "Noto Sans Bengali", "Nirmala UI", sans-serif;
-  background: #dfe5e8;
+  background-color: var(--paper-bg-color);
+  background-image: var(--paper-bg-image);
 }
 
 .app-shell {
@@ -44,7 +50,8 @@ body {
 
 .app-header {
   align-items: center;
-  background: var(--panel);
+  background-color: var(--paper-bg-color);
+  background-image: var(--paper-bg-image);
   border-bottom: 1px solid #c8d0d4;
   display: flex;
   grid-column: 1 / -1;
@@ -55,11 +62,8 @@ body {
 .controls {
   grid-column: 1;
   grid-row: 2;
-  /* Subtle fractal-noise grain over the panel's own color for a paper
-     texture, instead of a flat fill — self-contained (no image asset to
-     bundle), tiled at 180px. */
-  background-color: #f2ede2;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44NSIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9Im1hdHJpeCIgdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjA1IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4=");
+  background-color: var(--paper-bg-color);
+  background-image: var(--paper-bg-image);
   border-right: 1px solid #c8d0d4;
   display: flex;
   flex-direction: column;
