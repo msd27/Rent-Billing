@@ -15,7 +15,14 @@ sharing one codebase.
 
 ## Features
 
-- Same invoice form/fields as the original web version.
+- Same invoice form/fields as the original web version, plus an "Other
+  charges reason" text field (`#otherChargesReason`, right after "Other
+  charges") that had been missed when this app was built — it's a plain
+  optional text field, persisted/highlighted like every other field via
+  `fields`/`fieldHighlightTargets` in `src/app.js`. When filled in, it's
+  appended in parentheses after the Other charges amount on the invoice
+  (`Other charges (অন্য খৰচ) = 0 (repair charge)`); left empty, it adds
+  nothing.
 - The screen is three top-level pieces stacked in `.app-shell`, not two:
   `.app-header` (logo + "Rent Billing"/"Invoice Builder") pinned at the
   very top, then the invoice preview, then the form panel — the brand

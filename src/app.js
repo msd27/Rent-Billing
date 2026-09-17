@@ -19,6 +19,7 @@ const fields = [
   "rent",
   "deduction",
   "otherCharges",
+  "otherChargesReason",
   "currentDate",
   "previousDate",
 ];
@@ -42,6 +43,7 @@ const fieldHighlightTargets = {
   rent: ["row-rent", "row-total"],
   deduction: ["row-total"],
   otherCharges: ["row-total", "row-other"],
+  otherChargesReason: ["row-other"],
   currentDate: ["photo-current"],
   previousDate: ["photo-previous"],
 };
@@ -107,6 +109,9 @@ function renderInvoice() {
   setOutput("total", money.format(total));
   setOutput("deductionFormula", deduction ? `-${money.format(deduction)}(tuition room fan charge)` : "");
   setOutput("otherFormula", otherCharges ? ` + ${money.format(otherCharges)}(other charges)` : "");
+
+  const otherChargesReason = document.getElementById("otherChargesReason").value.trim();
+  setOutput("otherChargesReasonFormatted", otherChargesReason ? ` (${otherChargesReason})` : "");
 }
 
 async function loadSavedFields() {
