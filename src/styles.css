@@ -545,8 +545,14 @@ address {
        keeps that assumption valid; centering is computed and applied
        directly as a margin in JS instead. */
     flex: 0 0 auto;
-    height: 46vh;
-    height: 46dvh;
+    /* Fixed to a JS-captured viewport height (see lockViewportHeight in
+       app.js) instead of a raw vh/dvh unit: dvh tracks the WebView's
+       *current* visual viewport, which Android shrinks when the on-screen
+       keyboard opens — that was making this preview (and the invoice
+       scaled to fit it) visibly shrink while editing a field. The locked
+       value only updates on a real width change (orientation/resize), not
+       a keyboard toggle. */
+    height: calc(var(--app-vh, 100dvh) * 0.46);
     order: -1;
     overflow: hidden;
     padding: 12px;

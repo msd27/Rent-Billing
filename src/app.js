@@ -491,6 +491,16 @@ function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) 
   });
 }
 
+function lockViewportHeight() {
+  // Android resizes the WebView's visual viewport when the on-screen
+  // keyboard opens, which made `dvh`-based heights (and the scale computed
+  // from them) shrink the pinned invoice preview mid-edit. Capture the
+  // *real* viewport height into a CSS variable only when the width also
+  // changes (an actual layout change), so the keyboard opening/closing
+  // can't feed back into it.
+  document.documentElement.style.setProperty("--app-vh", `${window.innerHeight}px`);
+}
+
 function fitInvoiceToViewport() {
   const wrap = document.querySelector(".preview-wrap");
   const invoice = document.getElementById("invoice");
@@ -707,10 +717,24 @@ async function init() {
   document.getElementById("pdfPreviewPayBtn").addEventListener("click", payWithUpi);
   document.getElementById("copyUpiBtn").addEventListener("click", copyUpiId);
   document.getElementById("ocrDebugClose").addEventListener("click", closeOcrDebugImage);
-  window.addEventListener("resize", fitInvoiceToViewport);
+
+  let lastKnownWidth = window.innerWidth;
+  window.addEventListener("resize", () => {
+    // Only re-fit on a real layout change (orientation, window resize).
+    // The on-screen keyboard only ever changes the height, so a
+    // width-only-unchanged resize is treated as a keyboard toggle and
+    // ignored, instead of shrinking the invoice preview to match it.
+    if (window.innerWidth === lastKnownWidth) {
+      return;
+    }
+    lastKnownWidth = window.innerWidth;
+    lockViewportHeight();
+    fitInvoiceToViewport();
+  });
 
   refreshGeneratedAt();
   renderInvoice();
+  lockViewportHeight();
   fitInvoiceToViewport();
 }
 

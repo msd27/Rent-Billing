@@ -17,7 +17,11 @@ sharing one codebase.
 
 - Same invoice form/fields as the original web version.
 - On mobile, the invoice preview is pinned to the top of the screen (scaled
-  to fit, no scrolling needed) with the form scrollable below it.
+  to fit, no scrolling needed) with the form scrollable below it. Its size
+  is locked to the viewport height at load/orientation-change time (see
+  `lockViewportHeight` in `src/app.js`), not a live `dvh` unit, so opening
+  the on-screen keyboard to edit a field doesn't shrink it — only a real
+  width change (rotating the device) re-fits it.
 - Focusing a form field lights up the matching section of the invoice with
   a neon border, so it's obvious what you're about to change.
 - Tapping the current/previous meter image fields opens the native "Take
