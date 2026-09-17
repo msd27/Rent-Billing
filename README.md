@@ -16,28 +16,31 @@ sharing one codebase.
 ## Features
 
 - Same invoice form/fields as the original web version.
-- On mobile, the invoice preview is pinned to the top of the screen (scaled
-  to fit, no scrolling needed) with the form scrollable below it. Its size
-  is locked to the viewport height at load/orientation-change time (see
-  `lockViewportHeight` in `src/app.js`), not a live `dvh` unit, so opening
-  the on-screen keyboard to edit a field doesn't shrink it — only a real
-  width change (rotating the device) re-fits it.
-- The form panel is three plain flex siblings inside `.controls`, not
-  one scrolling box: a header (logo + "Rent Billing"/"Invoice Builder")
-  fixed at the top, `.control-fields` scrolling in the middle, and a
-  footer with the "Preview PDF" button fixed at the bottom — mirroring a
-  typical native app's top app bar + bottom action bar. Both header and
-  footer are structural siblings outside the scrolling region, not
-  `position: sticky` on elements inside it — a real-device test showed
-  sticky positioning didn't reliably mask fields scrolling underneath a
-  sticky header (some WebView versions handle sticky inconsistently in a
-  nested flex/overflow context), so field text was visibly poking out
-  above it. Keeping both bars outside the scroll container's DOM avoids
-  that whole class of bug, and moving "Preview PDF" out of the header
-  also shrinks the header's own height, leaving more of the screen for
-  `.control-fields` — with a taller header combined with an open
-  keyboard, a field like "Previous reading" could end up with nowhere
-  left to scroll into view above the keyboard.
+- The screen is three top-level pieces stacked in `.app-shell`, not two:
+  `.app-header` (logo + "Rent Billing"/"Invoice Builder") pinned at the
+  very top, then the invoice preview, then the form panel — the brand
+  header used to live inside the form panel itself, below the preview,
+  which didn't read as a page-level header. On mobile this is plain
+  `order` in a column flex layout (`.app-header` at `order:-2`, the
+  preview at `-1`); on desktop `.app-shell` is a grid with `.app-header`
+  spanning both columns in its own row above the form/preview columns.
+- On mobile, the invoice preview is pinned below the app header (scaled
+  to fit, no scrolling needed) with the form scrollable below it. Its
+  size is locked to the viewport height at load/orientation-change time
+  (see `lockViewportHeight` in `src/app.js`), not a live `dvh` unit, so
+  opening the on-screen keyboard to edit a field doesn't shrink it —
+  only a real width change (rotating the device) re-fits it.
+- The form panel is two plain flex siblings inside `.controls` around
+  the scrolling fields: `.control-footer` (the "Preview PDF" button)
+  fixed at the bottom, mirroring a typical native app's bottom action
+  bar. It's a structural sibling outside the scrolling region, not
+  `position: sticky` on an element inside it — the app header above had
+  the same issue when it briefly lived inside the form panel: a
+  real-device test showed sticky positioning didn't reliably mask
+  fields scrolling underneath a sticky bar (some WebView versions handle
+  sticky inconsistently in a nested flex/overflow context), so field
+  text was visibly poking out above it. Keeping bars structurally
+  outside the scroll container's DOM avoids that whole class of bug.
 - Form fields have a tinted background and a soft inset shadow instead of
   a flat white box, and the four "Add photo" buttons are filled with a
   teal gradient (`.add-photo-btn`, layered on `.secondary-btn`) rather

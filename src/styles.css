@@ -38,10 +38,23 @@ body {
 .app-shell {
   display: grid;
   grid-template-columns: minmax(320px, 420px) minmax(680px, 1fr);
+  grid-template-rows: auto 1fr;
   min-height: 100vh;
 }
 
+.app-header {
+  align-items: center;
+  background: var(--panel);
+  border-bottom: 1px solid #c8d0d4;
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  padding: 16px 22px;
+}
+
 .controls {
+  grid-column: 1;
+  grid-row: 2;
   /* Subtle fractal-noise grain over the panel's own color for a paper
      texture, instead of a flat fill — self-contained (no image asset to
      bundle), tiled at 180px. */
@@ -53,13 +66,6 @@ body {
   padding: 22px;
 }
 
-.control-header {
-  border-bottom: 1px solid #c8d0d4;
-  flex: 0 0 auto;
-  margin: 0 0 18px;
-  padding-bottom: 18px;
-}
-
 .control-fields {
   display: flex;
   flex-direction: column;
@@ -68,15 +74,15 @@ body {
 
 .control-footer {
   /* A plain flex sibling after .control-fields (not position:fixed or
-     sticky) — same reasoning as .control-header: a structural sibling
+     sticky) — same reasoning as .app-header: a structural sibling
      outside the scrolling region can't be scrolled under or mis-clipped
      by a WebView's sticky quirks, it just always occupies its own space
-     at the bottom of .controls. Moving Preview PDF here (out of the
-     header) also shrinks the fixed chrome at the top, leaving more room
-     for .control-fields — previously, with a taller fixed header eating
-     into a WebView already shrunk by the open keyboard, a field like
-     "Previous reading" could end up hidden behind the keyboard with no
-     space left to scroll it into view. */
+     at the bottom of .controls. Keeping Preview PDF here (out of the
+     brand header) keeps the fixed chrome at the very top minimal, so
+     .control-fields keeps as much room as possible — with a taller
+     fixed header eating into a WebView already shrunk by the open
+     keyboard, a field like "Previous reading" could end up hidden
+     behind the keyboard with no space left to scroll it into view. */
   flex: 0 0 auto;
   border-top: 1px solid #c8d0d4;
   margin: 18px 0 0;
@@ -367,6 +373,8 @@ textarea {
 }
 
 .preview-wrap {
+  grid-column: 2;
+  grid-row: 2;
   overflow: auto;
   padding: 28px;
 }
@@ -684,6 +692,13 @@ address {
     overflow: hidden;
   }
 
+  .app-header {
+    /* -2 so it sorts before .preview-wrap's -1 — the brand header is the
+       very first thing on screen, above the pinned invoice preview. */
+    flex: 0 0 auto;
+    order: -2;
+  }
+
   .controls {
     border-right: 0;
     border-bottom: 1px solid #c8d0d4;
@@ -693,13 +708,14 @@ address {
   }
 
   .control-fields {
-    /* The actual scrolling region — .control-header sits outside it as a
-       plain sibling (not position:sticky) so it can never be scrolled
-       under/behind: on-device testing showed sticky positioning here
-       didn't reliably mask the fields scrolling past it (some WebView
-       versions render position:sticky inconsistently inside a nested
-       flex/overflow context), leaving field text visibly poking out
-       above the header. Keeping the header structurally outside the
+    /* The actual scrolling region — .app-header (brand) and
+       .control-footer (Preview PDF) both sit structurally outside it as
+       plain siblings, not position:sticky, so neither can ever be
+       scrolled under/behind: on-device testing showed sticky
+       positioning didn't reliably mask fields scrolling past it (some
+       WebView versions render position:sticky inconsistently inside a
+       nested flex/overflow context), leaving field text visibly poking
+       out above the header. Keeping both bars structurally outside the
        scroll container avoids that class of bug entirely. */
     flex: 1 1 auto;
     min-height: 0;
