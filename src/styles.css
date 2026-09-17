@@ -753,6 +753,16 @@ address {
     overflow: hidden;
     padding: 12px;
   }
+
+  /* When the keyboard is open (see updateKeyboardState in app.js), the
+     fixed-height header + preview no longer leave enough of the actually
+     shrunk viewport for the form to be usable. Hiding the preview hands
+     that space straight back to .controls (still flex:1 1 auto) instead
+     of trying to shrink the preview proportionally — simpler and doesn't
+     reintroduce the jumpy mid-edit resizing lockViewportHeight avoids. */
+  html.keyboard-open .preview-wrap {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {

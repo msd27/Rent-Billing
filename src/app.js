@@ -564,6 +564,27 @@ function lockViewportHeight() {
   document.documentElement.style.setProperty("--app-vh", `${window.innerHeight}px`);
 }
 
+function updateKeyboardState() {
+  // With windowSoftInputMode="adjustResize", the WebView's own height
+  // (window.innerHeight / visualViewport.height) genuinely shrinks by the
+  // keyboard's height instead of the page being panned over it. The
+  // invoice preview above keeps its *pre-keyboard* height (locked by
+  // lockViewportHeight, deliberately not live) so it doesn't jump around
+  // while typing — but that means when the keyboard actually eats real
+  // space, the fixed-height header + preview no longer leave enough room
+  // for the scrollable form, collapsing it to nothing. Detecting the
+  // keyboard and hiding the preview (a plain class toggle, not more
+  // viewport math) hands that space back to the form, which is what's
+  // actually being edited.
+  if (window.innerWidth > 1100) {
+    document.documentElement.classList.remove("keyboard-open");
+    return;
+  }
+  const fullHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-vh")) || window.innerHeight;
+  const currentHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.classList.toggle("keyboard-open", fullHeight - currentHeight > 120);
+}
+
 function fitInvoiceToViewport() {
   const wrap = document.querySelector(".preview-wrap");
   const invoice = document.getElementById("invoice");
@@ -823,12 +844,20 @@ async function init() {
     lastKnownWidth = window.innerWidth;
     lockViewportHeight();
     fitInvoiceToViewport();
+    updateKeyboardState();
   });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateKeyboardState);
+  } else {
+    window.addEventListener("resize", updateKeyboardState);
+  }
 
   refreshGeneratedAt();
   renderInvoice();
   lockViewportHeight();
   fitInvoiceToViewport();
+  updateKeyboardState();
 }
 
 init();

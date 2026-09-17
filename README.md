@@ -51,7 +51,17 @@ sharing one codebase.
   height, so the CSS `100dvh` shell shrinks with it, `.control-fields`'s
   scrollable area shrinks to match, and `.control-footer` stays pinned at
   the (now-smaller) bottom of `.controls` — visible above the keyboard,
-  never over a field.
+  never over a field. That resize alone wasn't enough, though: the
+  invoice preview's own height stays locked to the *pre-keyboard* full
+  screen height (deliberately, so it doesn't shrink/jump mid-edit — see
+  above), so once the keyboard actually eats real space, the fixed-height
+  header + preview left no room at all for the form, collapsing it to
+  nothing. `updateKeyboardState` in `src/app.js` detects the shrink (via
+  `visualViewport`, comparing against the locked `--app-vh`) and toggles
+  a `keyboard-open` class on `<html>`; CSS hides `.preview-wrap` while
+  that class is set, handing its space straight back to `.controls` so
+  the field being edited is always visible. The preview reappears as soon
+  as the keyboard closes.
 - The two meter-date fields (`#currentDate`, `#previousDate`) are set to
   a larger, bolder font (19px/700) than the other inputs (13px, inherited
   from their label) since they're easy to misread at the default size.
