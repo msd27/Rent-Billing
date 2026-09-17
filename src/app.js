@@ -564,6 +564,42 @@ function lockViewportHeight() {
   document.documentElement.style.setProperty("--app-vh", `${window.innerHeight}px`);
 }
 
+function sizePreviewForKeyboard(currentHeight) {
+  // Instead of an arbitrary fixed shrink height, work out how much space
+  // two stacked field rows actually need on this device/font size and
+  // give the preview whatever's left, so the form always keeps room to
+  // show the field being edited plus the next one for context.
+  const header = document.querySelector(".app-header");
+  const controls = document.querySelector(".controls");
+  const controlFields = document.querySelector(".control-fields");
+  const footer = document.querySelector(".control-footer");
+  // A single field label (not a whole .control-grid group, which at this
+  // width stacks to one column and can hold up to six fields — measuring
+  // that would wildly overestimate what "one field" needs).
+  const sampleField = controlFields ? controlFields.querySelector("label") : null;
+  const sampleGrid = controlFields ? controlFields.querySelector(".control-grid") : null;
+  if (!header || !controls || !controlFields || !footer || !sampleField || !sampleGrid) {
+    return;
+  }
+
+  const controlsStyle = getComputedStyle(controls);
+  const gridStyle = getComputedStyle(sampleGrid);
+  const footerStyle = getComputedStyle(footer);
+
+  const headerHeight = header.getBoundingClientRect().height;
+  const controlsPadding = parseFloat(controlsStyle.paddingTop) + parseFloat(controlsStyle.paddingBottom);
+  const footerOuterHeight = footer.getBoundingClientRect().height + parseFloat(footerStyle.marginTop);
+  const fieldGap = parseFloat(gridStyle.rowGap) || parseFloat(gridStyle.gap) || 14;
+  const fieldHeight = sampleField.getBoundingClientRect().height;
+  const twoRowsHeight = fieldHeight * 2 + fieldGap;
+
+  const chromeHeight = headerHeight + controlsPadding + footerOuterHeight;
+  const naturalMax = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-vh")) * 0.46 || 300;
+  const previewHeight = Math.max(60, Math.min(naturalMax, currentHeight - chromeHeight - twoRowsHeight));
+
+  document.documentElement.style.setProperty("--keyboard-preview-height", `${previewHeight}px`);
+}
+
 function updateKeyboardState() {
   // With windowSoftInputMode="adjustResize", the WebView's own height
   // (window.innerHeight / visualViewport.height) genuinely shrinks by the
@@ -573,9 +609,9 @@ function updateKeyboardState() {
   // while typing — but that means when the keyboard actually eats real
   // space, the fixed-height header + preview no longer leave enough room
   // for the scrollable form. Detecting the keyboard and shrinking the
-  // preview (a plain class toggle to a much smaller fixed height, plus a
-  // rescale) hands most of that space back to the form while keeping the
-  // invoice visible rather than hiding it outright.
+  // preview (via sizePreviewForKeyboard, plus a rescale) hands the space
+  // two field rows need back to the form while keeping the invoice
+  // visible rather than hiding it outright.
   if (window.innerWidth > 1100) {
     const wasOpen = document.documentElement.classList.contains("keyboard-open");
     document.documentElement.classList.remove("keyboard-open");
@@ -589,6 +625,9 @@ function updateKeyboardState() {
   const keyboardOpen = fullHeight - currentHeight > 120;
   const wasOpen = document.documentElement.classList.contains("keyboard-open");
   document.documentElement.classList.toggle("keyboard-open", keyboardOpen);
+  if (keyboardOpen) {
+    sizePreviewForKeyboard(currentHeight);
+  }
   if (keyboardOpen !== wasOpen) {
     fitInvoiceToViewport();
   }

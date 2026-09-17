@@ -752,16 +752,16 @@ address {
 
   /* When the keyboard is open (see updateKeyboardState in app.js), the
      fixed-height header + preview no longer leave enough of the actually
-     shrunk viewport for the form to be usable. Shrinking the preview to a
-     small fixed height (rather than the usual --app-vh-based percentage)
-     hands most of that space back to .controls (still flex:1 1 auto)
-     while keeping the invoice visible — app.js re-runs
-     fitInvoiceToViewport() right after this class toggles so the invoice
-     itself rescales down to match instead of just getting clipped.
-     A fixed px value (not another --app-vh percentage) keeps this
-     independent of exactly how much space the keyboard ate. */
+     shrunk viewport for the form to be usable. --keyboard-preview-height
+     is computed by sizePreviewForKeyboard() from the real height of two
+     stacked field rows, so the form always keeps room to show the field
+     being edited plus the next one — whatever's left goes to the
+     preview, which stays visible (just smaller) rather than being
+     hidden; app.js re-runs fitInvoiceToViewport() right after this class
+     toggles so the invoice itself rescales down to match. The 140px
+     fallback only matters before the first measurement runs.  */
   html.keyboard-open .preview-wrap {
-    height: 140px;
+    height: var(--keyboard-preview-height, 140px);
   }
 }
 

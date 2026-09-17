@@ -58,12 +58,17 @@ sharing one codebase.
   header + preview left too little room for the form. `updateKeyboardState`
   in `src/app.js` detects the shrink (via `visualViewport`, comparing
   against the locked `--app-vh`) and toggles a `keyboard-open` class on
-  `<html>`; CSS shrinks `.preview-wrap` to a small fixed height (rather
-  than hiding it) while that class is set, and `fitInvoiceToViewport()`
-  re-runs right after so the invoice itself rescales down to match instead
-  of getting clipped — the invoice stays visible, just smaller, and the
-  form gets the space it needs. It returns to full size as soon as the
-  keyboard closes.
+  `<html>`. Rather than shrinking the preview by an arbitrary fixed
+  amount, `sizePreviewForKeyboard()` measures the real rendered height of
+  one form field (`.control-fields label`) and reserves room for two of
+  them (so the field being edited plus the next one for context are
+  always visible), then sets `--keyboard-preview-height` to whatever's
+  left over for the preview — clamped so it never goes below a small
+  floor or above its normal size. `fitInvoiceToViewport()` re-runs right
+  after so the invoice rescales down to that height instead of getting
+  clipped — it stays visible, just smaller, sized to fit whatever room
+  the keyboard left. It returns to full size as soon as the keyboard
+  closes.
 - The meter-date captions in the invoice itself (under the current/
   previous meter photos, `.meter-card figcaption`) are set to a larger,
   bolder font (19px/700, up from 13px) since they're easy to misread at
