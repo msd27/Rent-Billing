@@ -314,7 +314,24 @@ textarea {
   position: relative;
 }
 
+.invoice-logo-badge {
+  height: 90px;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 90px;
+  z-index: 2;
+}
+
+.invoice-logo-badge svg {
+  display: block;
+  filter: drop-shadow(0 3px 5px rgba(17, 17, 17, 0.3));
+  height: 100%;
+  width: 100%;
+}
+
 .invoice-title {
+  padding-left: 108px;
   padding-right: 230px;
   padding-top: 4px;
   text-align: center;
@@ -333,22 +350,12 @@ textarea {
 }
 
 .invoice-heading {
-  align-items: center;
   color: var(--accent-dark);
-  display: flex;
   font-size: 32px;
   font-weight: 800;
-  gap: 10px;
-  justify-content: center;
   letter-spacing: 0.14em;
   line-height: 1;
   margin: 0 0 8px;
-}
-
-.invoice-heading-logo {
-  flex: 0 0 auto;
-  height: 34px;
-  width: 34px;
 }
 
 .invoice-title h2 {
@@ -419,12 +426,15 @@ textarea {
   align-items: center;
   background: #f5f5f5;
   border: 1px dashed #a4a4a4;
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(17, 17, 17, 0.18), 0 12px 26px rgba(17, 17, 17, 0.22);
   display: flex;
   font-size: 32px;
   font-weight: 800;
   height: 166px;
   justify-content: center;
   margin-left: auto;
+  overflow: hidden;
   width: 200px;
 }
 
@@ -459,11 +469,14 @@ textarea {
   align-items: center;
   background: #e7ece8;
   border: 1px dashed #9aa89f;
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(17, 17, 17, 0.18), 0 12px 26px rgba(17, 17, 17, 0.22);
   color: #48534c;
   display: flex;
   font-weight: 700;
   height: 278px;
   justify-content: center;
+  overflow: hidden;
   padding: 18px;
   text-align: center;
   width: 292px;
@@ -480,6 +493,7 @@ textarea {
 address {
   border: 1px solid var(--line);
   border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(17, 17, 17, 0.16), 0 14px 30px rgba(17, 17, 17, 0.2);
   font-size: 20px;
   font-style: normal;
   line-height: 1.35;
@@ -495,6 +509,7 @@ address {
      is the standard, reliable way to get rounded corners here. */
   border: 1px solid var(--line);
   border-radius: 12px;
+  box-shadow: 0 3px 6px rgba(17, 17, 17, 0.16), 0 14px 30px rgba(17, 17, 17, 0.2);
   margin-top: 14px;
   overflow: hidden;
 }

@@ -29,8 +29,11 @@ sharing one codebase.
   that container reserves 230px of padding for the payment box next to
   it, and highlighting it directly used to stretch the glow box straight
   across underneath the QR code.
-- The invoice heading carries the app's house-in-a-tag logo next to a
-  bolder, letter-spaced "INVOICE".
+- The app's house-in-a-tag logo is pinned to the invoice's own top-left
+  corner at 90px (`.invoice-logo-badge`), next to a bolder, letter-spaced
+  "INVOICE" heading.
+- The meter photo boxes, QR box, billing table, and address box all carry
+  a soft drop shadow for a raised "card" look instead of flat borders.
 - Tapping the current/previous meter image fields opens the native "Take
   Photo / Choose from Gallery" prompt (via `@capacitor/camera`). The QR and
   signature fields use a plain file picker instead (see below for why) —
@@ -168,9 +171,10 @@ running again.
   transparent) sits over a flat blue background
   (`values/ic_launcher_background.xml`) so it isn't clipped oddly by
   circular/squircle launcher masks. The same mark appears as a small badge
-  next to "Rent Billing" in the web header (`.brand-logo`) and again next
-  to "INVOICE" on the invoice itself (`.invoice-heading-logo`), both in
-  `src/index.html`. Splash screen is still Capacitor's default.
+  next to "Rent Billing" in the web header (`.brand-logo`) and again, at
+  90px, pinned to the invoice's own top-left corner
+  (`.invoice-logo-badge`), both in `src/index.html`. Splash screen is
+  still Capacitor's default.
 - QR and signature images with a transparent background used to render with
   a solid black fill instead of transparency. Root cause: `@capacitor/camera`
   always re-encodes its result as JPEG (`Bitmap.CompressFormat.JPEG` is
