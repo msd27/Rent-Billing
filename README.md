@@ -145,7 +145,15 @@ running again.
   shape exactly (long edge fixed at 297mm) rather than forcing a fixed A4
   box, so it's always gap-free, but in practice should stay close to a
   normal A4-landscape look now.
-- App icon and splash screen are still Capacitor's defaults.
+- App icon is a house-in-a-tag mark (blue `#0075BE`), generated at every
+  required density under `android/app/src/main/res/mipmap-*/` — the legacy
+  `ic_launcher(.round).png` carries the full tag shape, and the adaptive
+  icon's foreground (`ic_launcher_foreground.png`, just the house/ring on
+  transparent) sits over a flat blue background
+  (`values/ic_launcher_background.xml`) so it isn't clipped oddly by
+  circular/squircle launcher masks. The same mark appears as a small badge
+  next to "Rent Billing" in the web header (`.brand-logo` in
+  `src/index.html`). Splash screen is still Capacitor's default.
 - QR and signature images with a transparent background used to render with
   a solid black fill instead of transparency. Root cause: `@capacitor/camera`
   always re-encodes its result as JPEG (`Bitmap.CompressFormat.JPEG` is

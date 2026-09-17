@@ -57,6 +57,18 @@ body {
   gap: 16px;
 }
 
+.brand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.brand-logo {
+  flex: 0 0 auto;
+  height: 40px;
+  width: 40px;
+}
+
 .eyebrow {
   color: var(--accent-dark);
   font-size: 12px;
