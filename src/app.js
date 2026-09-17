@@ -26,8 +26,8 @@ const fields = [
 const images = [
   { inputId: "currentImage", previewId: "currentImagePreview", ocrTargetId: "currentReading" },
   { inputId: "previousImage", previewId: "previousImagePreview", ocrTargetId: "previousReading" },
-  { inputId: "qrImage", previewId: "qrPreview", ocrTargetId: null },
-  { inputId: "signatureImage", previewId: "signaturePreview", ocrTargetId: null },
+  { inputId: "qrImage", previewId: "qrPreview", ocrTargetId: null, useFilePicker: true },
+  { inputId: "signatureImage", previewId: "signaturePreview", ocrTargetId: null, useFilePicker: true },
 ];
 
 const fieldHighlightTargets = {
@@ -410,7 +410,16 @@ async function runOcr(dataUrl, targetId) {
   }
 }
 
-function attachImageCapture({ inputId, previewId, ocrTargetId }) {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) {
   const button = document.getElementById(`${inputId}Btn`);
   const preview = document.getElementById(previewId);
 
@@ -419,6 +428,42 @@ function attachImageCapture({ inputId, previewId, ocrTargetId }) {
       setPreviewImage(preview, inputId, value);
     }
   });
+
+  if (useFilePicker) {
+    // QR/signature images are often pre-made graphics with transparency
+    // (e.g. a signature exported as a PNG with a transparent background).
+    // Capacitor's Camera plugin always re-encodes its result as JPEG
+    // (Bitmap.CompressFormat.JPEG, hardcoded natively, no PNG option) —
+    // JPEG has no alpha channel, so any transparent pixels get flattened
+    // to whatever RGB value sits beneath them, which is black for most
+    // PNGs. A plain file input reads the original file bytes untouched,
+    // so transparency survives. The Android WebView's file chooser still
+    // offers "Camera" alongside "Files/Gallery", so this doesn't remove
+    // the option to take a photo instead of picking an existing image.
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/*";
+    fileInput.hidden = true;
+    document.body.appendChild(fileInput);
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files && fileInput.files[0];
+      fileInput.value = "";
+      if (!file) {
+        return;
+      }
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setPreviewImage(preview, inputId, dataUrl);
+        await Preferences.set({ key: imageKey(inputId), value: dataUrl });
+      } catch (error) {
+        console.error("Image selection failed", error);
+      }
+    });
+
+    button.addEventListener("click", () => fileInput.click());
+    return;
+  }
 
   button.addEventListener("click", async () => {
     try {

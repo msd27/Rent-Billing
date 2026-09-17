@@ -20,8 +20,11 @@ sharing one codebase.
   to fit, no scrolling needed) with the form scrollable below it.
 - Focusing a form field lights up the matching section of the invoice with
   a neon border, so it's obvious what you're about to change.
-- Tapping any of the 4 image fields (current meter, previous meter, QR,
-  signature) opens the native "Take Photo / Choose from Gallery" prompt.
+- Tapping the current/previous meter image fields opens the native "Take
+  Photo / Choose from Gallery" prompt (via `@capacitor/camera`). The QR and
+  signature fields use a plain file picker instead (see below for why) —
+  it still offers a camera option on Android, just through the system's own
+  chooser rather than Capacitor's custom-labelled prompt.
 - After capturing the current or previous meter photo, on-device OCR
   (Tesseract.js, fully self-hosted — no CDN calls, works offline) crops to
   just the meter's green LCD display, binarizes it for contrast, and reads
@@ -134,3 +137,16 @@ running again.
   box, so it's always gap-free, but in practice should stay close to a
   normal A4-landscape look now.
 - App icon and splash screen are still Capacitor's defaults.
+- QR and signature images with a transparent background used to render with
+  a solid black fill instead of transparency. Root cause: `@capacitor/camera`
+  always re-encodes its result as JPEG (`Bitmap.CompressFormat.JPEG` is
+  hardcoded in the plugin's Android source — there's no PNG option), and
+  JPEG has no alpha channel, so any transparent pixels get flattened to
+  whatever RGB sits beneath them, which for most PNG exports is black. That
+  happens natively before the image data ever reaches the web app, so it
+  couldn't be fixed with CSS/JS after the fact. Fixed by routing the QR and
+  signature fields through a plain `<input type="file">` + `FileReader`
+  instead of `Camera.getPhoto`, which reads the original file bytes
+  untouched and preserves transparency. Meter photos still use
+  `Camera.getPhoto` since they're live camera shots (no transparency
+  involved) and benefit from the custom-labelled native prompt.
