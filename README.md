@@ -22,6 +22,15 @@ sharing one codebase.
   `lockViewportHeight` in `src/app.js`), not a live `dvh` unit, so opening
   the on-screen keyboard to edit a field doesn't shrink it — only a real
   width change (rotating the device) re-fits it.
+- The form panel's own header — logo, "Rent Billing"/"Invoice Builder",
+  and the "Preview PDF" button — stays pinned (`position: sticky`) to the
+  top of the scrollable form as you scroll through fields, instead of
+  scrolling out of view.
+- Form fields have a tinted background and a soft inset shadow instead of
+  a flat white box, and the four "Add photo" buttons are filled with a
+  teal gradient (`.add-photo-btn`, layered on `.secondary-btn`) rather
+  than the plain outline used by the modal's Close/Pay buttons that also
+  share `.secondary-btn`.
 - Focusing a form field lights up the matching section of the invoice with
   a neon border, so it's obvious what you're about to change. The
   highlight targets an inner wrapper sized to the actual title text
