@@ -22,17 +22,22 @@ sharing one codebase.
   `lockViewportHeight` in `src/app.js`), not a live `dvh` unit, so opening
   the on-screen keyboard to edit a field doesn't shrink it — only a real
   width change (rotating the device) re-fits it.
-- The form panel's own header — logo, "Rent Billing"/"Invoice Builder",
-  and the "Preview PDF" button — stays fixed above the scrollable form as
-  you scroll through fields. It's a plain sibling structurally outside
-  the scrolling region (`.control-header` next to `.control-fields`,
-  both inside `.controls`), not `position: sticky` on an element inside
-  the scroll container — a real-device test showed sticky positioning
-  here didn't reliably mask fields scrolling underneath it (some WebView
-  versions handle sticky inconsistently in a nested flex/overflow
-  context), so field text was visibly poking out above the header.
-  Keeping the header outside the scroll container's DOM entirely avoids
-  that whole class of bug.
+- The form panel is three plain flex siblings inside `.controls`, not
+  one scrolling box: a header (logo + "Rent Billing"/"Invoice Builder")
+  fixed at the top, `.control-fields` scrolling in the middle, and a
+  footer with the "Preview PDF" button fixed at the bottom — mirroring a
+  typical native app's top app bar + bottom action bar. Both header and
+  footer are structural siblings outside the scrolling region, not
+  `position: sticky` on elements inside it — a real-device test showed
+  sticky positioning didn't reliably mask fields scrolling underneath a
+  sticky header (some WebView versions handle sticky inconsistently in a
+  nested flex/overflow context), so field text was visibly poking out
+  above it. Keeping both bars outside the scroll container's DOM avoids
+  that whole class of bug, and moving "Preview PDF" out of the header
+  also shrinks the header's own height, leaving more of the screen for
+  `.control-fields` — with a taller header combined with an open
+  keyboard, a field like "Previous reading" could end up with nowhere
+  left to scroll into view above the keyboard.
 - Form fields have a tinted background and a soft inset shadow instead of
   a flat white box, and the four "Add photo" buttons are filled with a
   teal gradient (`.add-photo-btn`, layered on `.secondary-btn`) rather

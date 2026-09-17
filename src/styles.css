@@ -54,12 +54,8 @@ body {
 }
 
 .control-header {
-  align-items: center;
   border-bottom: 1px solid #c8d0d4;
-  display: flex;
   flex: 0 0 auto;
-  justify-content: space-between;
-  gap: 16px;
   margin: 0 0 18px;
   padding-bottom: 18px;
 }
@@ -68,6 +64,27 @@ body {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.control-footer {
+  /* A plain flex sibling after .control-fields (not position:fixed or
+     sticky) — same reasoning as .control-header: a structural sibling
+     outside the scrolling region can't be scrolled under or mis-clipped
+     by a WebView's sticky quirks, it just always occupies its own space
+     at the bottom of .controls. Moving Preview PDF here (out of the
+     header) also shrinks the fixed chrome at the top, leaving more room
+     for .control-fields — previously, with a taller fixed header eating
+     into a WebView already shrunk by the open keyboard, a field like
+     "Previous reading" could end up hidden behind the keyboard with no
+     space left to scroll it into view. */
+  flex: 0 0 auto;
+  border-top: 1px solid #c8d0d4;
+  margin: 18px 0 0;
+  padding-top: 18px;
+}
+
+.control-footer .primary-btn {
+  width: 100%;
 }
 
 .brand {
@@ -719,10 +736,6 @@ address {
 
   .control-fields {
     gap: 14px;
-  }
-
-  .control-header {
-    flex-wrap: wrap;
   }
 
   .control-grid {
