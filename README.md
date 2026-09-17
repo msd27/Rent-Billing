@@ -41,6 +41,8 @@ sharing one codebase.
   before committing to anything; "Save / Share PDF" in that preview then
   builds the actual PDF (jsPDF + html2canvas) and opens the native share
   sheet on Android, or downloads it directly in a browser.
+- A small "Thank you for staying with us." note at the very bottom of the
+  invoice, below the signature.
 - A "Copy" button next to the UPI ID copies it to the clipboard (falls back
   to a hidden-textarea `execCommand("copy")` if the Clipboard API isn't
   available). Excluded from the PDF export.

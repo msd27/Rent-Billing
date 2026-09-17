@@ -498,6 +498,15 @@ address {
   margin: 2px 0;
 }
 
+.thanks-note {
+  clear: both;
+  color: #5b656b;
+  font-size: 16px;
+  font-style: italic;
+  margin: 18px 0 0;
+  text-align: center;
+}
+
 .signature-placeholder {
   align-items: center;
   border-bottom: 1px solid var(--line);
@@ -743,6 +752,11 @@ address {
     margin-bottom: 1mm;
     padding: 1mm;
     width: 48mm;
+  }
+
+  .thanks-note {
+    font-size: 10pt;
+    margin-top: 6mm;
   }
 
   .signature-placeholder img {
