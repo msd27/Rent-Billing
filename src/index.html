@@ -29,6 +29,7 @@
           <button id="printBtn" class="primary-btn" type="button">Preview PDF</button>
         </div>
 
+        <div class="control-fields">
         <div class="control-grid">
           <label>
             Room
@@ -113,6 +114,7 @@ GOALPARA, ASSAM-783124</textarea>
             <span class="upload-label">Owner signature image</span>
             <button id="signatureImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
           </div>
+        </div>
         </div>
       </section>
 
@@ -230,6 +232,19 @@ GOALPARA, ASSAM-783124</textarea>
         <div class="pdf-preview-actions">
           <button id="pdfPreviewPayBtn" class="secondary-btn pay-upi-btn" type="button">Pay via UPI</button>
           <button id="pdfPreviewConfirm" class="primary-btn" type="button">Save / Share PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="imageSourceOverlay" class="pdf-preview-overlay" hidden>
+      <div class="pdf-preview-panel image-source-panel">
+        <div class="pdf-preview-header">
+          <span>Add photo</span>
+          <button id="imageSourceClose" class="secondary-btn" type="button">Close</button>
+        </div>
+        <div class="image-source-actions">
+          <button id="imageSourceCamera" class="add-photo-btn" type="button">Take photo</button>
+          <button id="imageSourceGallery" class="secondary-btn" type="button">Choose from gallery</button>
         </div>
       </div>
     </div>

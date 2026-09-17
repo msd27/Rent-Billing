@@ -444,6 +444,24 @@ function compositeOntoWhite(dataUrl) {
   });
 }
 
+let pendingImagePickerField = null;
+
+function openImageSourceSheet(field) {
+  pendingImagePickerField = field;
+  document.getElementById("imageSourceOverlay").hidden = false;
+}
+
+function closeImageSourceSheet() {
+  pendingImagePickerField = null;
+  document.getElementById("imageSourceOverlay").hidden = true;
+}
+
+async function storePickedImage(field, dataUrl) {
+  const flattened = await compositeOntoWhite(dataUrl);
+  setPreviewImage(field.preview, field.inputId, flattened);
+  await Preferences.set({ key: imageKey(field.inputId), value: flattened });
+}
+
 function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) {
   const button = document.getElementById(`${inputId}Btn`);
   const preview = document.getElementById(previewId);
@@ -472,15 +490,25 @@ function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) 
     // (Bitmap.CompressFormat.JPEG, hardcoded natively, no PNG option) —
     // JPEG has no alpha channel, so any transparent pixels get flattened
     // to whatever RGB value sits beneath them, which is black for most
-    // PNGs. A plain file input reads the original file bytes untouched,
-    // so transparency survives. The Android WebView's file chooser still
-    // offers "Camera" alongside "Files/Gallery", so this doesn't remove
-    // the option to take a photo instead of picking an existing image.
+    // PNGs. Picking through a plain file input reads the original file
+    // bytes untouched, so transparency survives.
+    //
+    // The OS's default file-input chooser doesn't reliably offer a
+    // "Camera" option on every device (confirmed missing on a real one),
+    // unlike Capacitor's own Camera.getPhoto(source: Prompt) dialog used
+    // for the meter photos below — so this field gets its own small
+    // "Take photo / Choose from gallery" sheet (#imageSourceOverlay)
+    // instead of relying on either single picker alone: gallery goes
+    // through this file input (transparency-safe), camera goes through
+    // Camera.getPhoto with source: Camera specifically (a live photo
+    // never has transparency to lose in the first place).
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = "image/*";
     fileInput.hidden = true;
     document.body.appendChild(fileInput);
+
+    const field = { inputId, preview, fileInput };
 
     fileInput.addEventListener("change", async () => {
       const file = fileInput.files && fileInput.files[0];
@@ -490,15 +518,13 @@ function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) 
       }
       try {
         const dataUrl = await readFileAsDataUrl(file);
-        const flattened = await compositeOntoWhite(dataUrl);
-        setPreviewImage(preview, inputId, flattened);
-        await Preferences.set({ key: imageKey(inputId), value: flattened });
+        await storePickedImage(field, dataUrl);
       } catch (error) {
         console.error("Image selection failed", error);
       }
     });
 
-    button.addEventListener("click", () => fileInput.click());
+    button.addEventListener("click", () => openImageSourceSheet(field));
     return;
   }
 
@@ -755,6 +781,35 @@ async function init() {
   document.getElementById("pdfPreviewPayBtn").addEventListener("click", payWithUpi);
   document.getElementById("copyUpiBtn").addEventListener("click", copyUpiId);
   document.getElementById("ocrDebugClose").addEventListener("click", closeOcrDebugImage);
+
+  document.getElementById("imageSourceClose").addEventListener("click", closeImageSourceSheet);
+  document.getElementById("imageSourceGallery").addEventListener("click", () => {
+    const field = pendingImagePickerField;
+    closeImageSourceSheet();
+    if (field) {
+      field.fileInput.click();
+    }
+  });
+  document.getElementById("imageSourceCamera").addEventListener("click", async () => {
+    const field = pendingImagePickerField;
+    closeImageSourceSheet();
+    if (!field) {
+      return;
+    }
+    try {
+      const photo = await Camera.getPhoto({
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+        quality: 80,
+      });
+      await storePickedImage(field, photo.dataUrl);
+    } catch (error) {
+      if (error && error.message === "User cancelled photos app") {
+        return;
+      }
+      console.error("Photo capture failed", error);
+    }
+  });
 
   let lastKnownWidth = window.innerWidth;
   window.addEventListener("resize", () => {

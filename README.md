@@ -23,14 +23,24 @@ sharing one codebase.
   the on-screen keyboard to edit a field doesn't shrink it — only a real
   width change (rotating the device) re-fits it.
 - The form panel's own header — logo, "Rent Billing"/"Invoice Builder",
-  and the "Preview PDF" button — stays pinned (`position: sticky`) to the
-  top of the scrollable form as you scroll through fields, instead of
-  scrolling out of view.
+  and the "Preview PDF" button — stays fixed above the scrollable form as
+  you scroll through fields. It's a plain sibling structurally outside
+  the scrolling region (`.control-header` next to `.control-fields`,
+  both inside `.controls`), not `position: sticky` on an element inside
+  the scroll container — a real-device test showed sticky positioning
+  here didn't reliably mask fields scrolling underneath it (some WebView
+  versions handle sticky inconsistently in a nested flex/overflow
+  context), so field text was visibly poking out above the header.
+  Keeping the header outside the scroll container's DOM entirely avoids
+  that whole class of bug.
 - Form fields have a tinted background and a soft inset shadow instead of
   a flat white box, and the four "Add photo" buttons are filled with a
   teal gradient (`.add-photo-btn`, layered on `.secondary-btn`) rather
   than the plain outline used by the modal's Close/Pay buttons that also
-  share `.secondary-btn`.
+  share `.secondary-btn`. The form panel itself has a subtle paper-grain
+  texture (an inline SVG `feTurbulence` noise filter, base64-encoded
+  directly into the CSS `background-image` — no image asset to bundle)
+  instead of a flat panel color.
 - Focusing a form field lights up the matching section of the invoice with
   a neon border, so it's obvious what you're about to change. The
   highlight targets an inner wrapper sized to the actual title text
@@ -44,10 +54,15 @@ sharing one codebase.
 - The meter photo boxes, QR box, billing table, and address box all carry
   a soft drop shadow for a raised "card" look instead of flat borders.
 - Tapping the current/previous meter image fields opens the native "Take
-  Photo / Choose from Gallery" prompt (via `@capacitor/camera`). The QR and
-  signature fields use a plain file picker instead (see below for why) —
-  it still offers a camera option on Android, just through the system's own
-  chooser rather than Capacitor's custom-labelled prompt.
+  Photo / Choose from Gallery" prompt (via `@capacitor/camera`,
+  `source: CameraSource.Prompt`). The QR and signature fields open a small
+  in-app "Take photo / Choose from gallery" sheet instead
+  (`#imageSourceOverlay`) — gallery goes through a plain file input (see
+  below for why: it preserves PNG transparency), camera goes through
+  `Camera.getPhoto` with `source: CameraSource.Camera` specifically. A
+  single OS file-input chooser was tried first, on the assumption it would
+  also offer a camera option — confirmed missing on a real device, so
+  there's no assumption left here: both paths are explicit.
 - After capturing the current or previous meter photo, on-device OCR
   (Tesseract.js, fully self-hosted — no CDN calls, works offline) crops to
   just the meter's green LCD display, binarizes it for contrast, and reads

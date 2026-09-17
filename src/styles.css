@@ -42,26 +42,32 @@ body {
 }
 
 .controls {
-  background: var(--panel);
+  /* Subtle fractal-noise grain over the panel's own color for a paper
+     texture, instead of a flat fill — self-contained (no image asset to
+     bundle), tiled at 180px. */
+  background-color: #f2ede2;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44NSIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9Im1hdHJpeCIgdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjA1IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4=");
   border-right: 1px solid #c8d0d4;
   display: flex;
   flex-direction: column;
-  gap: 18px;
   padding: 22px;
 }
 
 .control-header {
   align-items: center;
-  background: var(--panel);
   border-bottom: 1px solid #c8d0d4;
   display: flex;
+  flex: 0 0 auto;
   justify-content: space-between;
   gap: 16px;
-  margin: 0 0 4px;
-  padding-bottom: 14px;
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  margin: 0 0 18px;
+  padding-bottom: 18px;
+}
+
+.control-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .brand {
@@ -316,6 +322,22 @@ textarea {
   flex-direction: column;
   gap: 10px;
   padding: 12px 16px;
+}
+
+.image-source-panel {
+  max-width: 320px;
+}
+
+.image-source-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.image-source-actions button {
+  min-height: 44px;
+  width: 100%;
 }
 
 .pdf-preview-actions .primary-btn,
@@ -650,6 +672,20 @@ address {
     border-bottom: 1px solid #c8d0d4;
     flex: 1 1 auto;
     min-height: 0;
+    overflow: hidden;
+  }
+
+  .control-fields {
+    /* The actual scrolling region — .control-header sits outside it as a
+       plain sibling (not position:sticky) so it can never be scrolled
+       under/behind: on-device testing showed sticky positioning here
+       didn't reliably mask the fields scrolling past it (some WebView
+       versions render position:sticky inconsistently inside a nested
+       flex/overflow context), leaving field text visibly poking out
+       above the header. Keeping the header structurally outside the
+       scroll container avoids that class of bug entirely. */
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -678,8 +714,11 @@ address {
 
 @media (max-width: 640px) {
   .controls {
-    gap: 14px;
     padding: 16px;
+  }
+
+  .control-fields {
+    gap: 14px;
   }
 
   .control-header {
