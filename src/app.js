@@ -449,9 +449,20 @@ function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) 
   const preview = document.getElementById(previewId);
 
   Preferences.get({ key: imageKey(inputId) }).then(({ value }) => {
-    if (value) {
-      setPreviewImage(preview, inputId, value);
+    if (!value) {
+      return;
     }
+    // A QR/signature image saved before this field switched from
+    // Camera.getPhoto to a file picker was captured through the old,
+    // lossy JPEG re-encode path — any transparency in it was already
+    // flattened to black before it was ever stored, so there's nothing
+    // left to fix by loading it. Discard it instead of redisplaying a
+    // black box on every app open; the placeholder prompts a fresh pick.
+    if (useFilePicker && value.startsWith("data:image/jpeg")) {
+      Preferences.remove({ key: imageKey(inputId) });
+      return;
+    }
+    setPreviewImage(preview, inputId, value);
   });
 
   if (useFilePicker) {

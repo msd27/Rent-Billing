@@ -166,4 +166,14 @@ running again.
   right when the file is read (`compositeOntoWhite` in `src/app.js`),
   instead of trying to keep transparency alive through every later step —
   by the time the image is stored, there's no alpha channel left for
-  anything downstream to lose.
+  anything downstream to lose. One more wrinkle: a signature/QR image
+  saved from *before* this fix is a JPEG (from the old `Camera.getPhoto`
+  path) with the black already baked in permanently — reloading the app
+  kept redisplaying that stale, already-broken image no matter how
+  correct the new capture code was, since it never got a chance to run
+  again. Fixed by detecting that case on load (a `useFilePicker` field
+  whose stored value is `data:image/jpeg`) and discarding it back to the
+  empty placeholder instead, so the next photo you add actually goes
+  through the fixed path. If you've hit this bug before, you'll need to
+  re-add the QR/signature photo once after updating — it won't fix
+  itself retroactively.
