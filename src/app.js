@@ -544,7 +544,7 @@ async function renderInvoiceCanvas() {
     return await html2canvas(invoice, {
       scale: 2,
       useCORS: true,
-      ignoreElements: (el) => el.id === "payUpiBtn",
+      ignoreElements: (el) => el.id === "payUpiBtn" || el.id === "copyUpiBtn",
     });
   } finally {
     invoice.style.transform = previousTransform;
@@ -657,6 +657,36 @@ function payWithUpi() {
   window.location.href = `upi://pay?${params.toString()}`;
 }
 
+async function copyUpiId() {
+  const upiId = document.getElementById("upi").value.trim();
+  const button = document.getElementById("copyUpiBtn");
+  if (!upiId) {
+    return;
+  }
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(upiId);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = upiId;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+    const originalText = button.textContent;
+    button.textContent = "Copied!";
+    setTimeout(() => {
+      button.textContent = originalText;
+    }, 1500);
+  } catch (error) {
+    console.error("Copy failed", error);
+  }
+}
+
 function openOcrDebugImage(src) {
   document.getElementById("ocrDebugImage").src = src;
   document.getElementById("ocrDebugOverlay").hidden = false;
@@ -676,6 +706,7 @@ async function init() {
   document.getElementById("pdfPreviewConfirm").addEventListener("click", confirmPdfExport);
   document.getElementById("payUpiBtn").addEventListener("click", payWithUpi);
   document.getElementById("pdfPreviewPayBtn").addEventListener("click", payWithUpi);
+  document.getElementById("copyUpiBtn").addEventListener("click", copyUpiId);
   document.getElementById("ocrDebugClose").addEventListener("click", closeOcrDebugImage);
   window.addEventListener("resize", fitInvoiceToViewport);
 
