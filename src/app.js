@@ -18,6 +18,7 @@ const fields = [
   "rate",
   "rent",
   "deduction",
+  "deductionReason",
   "otherCharges",
   "otherChargesReason",
   "currentDate",
@@ -27,8 +28,8 @@ const fields = [
 const images = [
   { inputId: "currentImage", previewId: "currentImagePreview", ocrTargetId: "currentReading" },
   { inputId: "previousImage", previewId: "previousImagePreview", ocrTargetId: "previousReading" },
-  { inputId: "qrImage", previewId: "qrPreview", ocrTargetId: null, useFilePicker: true },
-  { inputId: "signatureImage", previewId: "signaturePreview", ocrTargetId: null, useFilePicker: true },
+  { inputId: "qrImage", previewId: "qrPreview", ocrTargetId: null },
+  { inputId: "signatureImage", previewId: "signaturePreview", ocrTargetId: null },
 ];
 
 const fieldHighlightTargets = {
@@ -42,6 +43,7 @@ const fieldHighlightTargets = {
   rate: ["row-energy"],
   rent: ["row-rent", "row-total"],
   deduction: ["row-total"],
+  deductionReason: ["row-total"],
   otherCharges: ["row-total", "row-other"],
   otherChargesReason: ["row-other"],
   currentDate: ["photo-current"],
@@ -152,7 +154,8 @@ function renderInvoice() {
   setOutput("rent", money.format(rent));
   setOutput("otherCharges", money.format(otherCharges));
   setOutput("total", money.format(total));
-  setOutput("deductionFormula", deduction ? `-${money.format(deduction)}(tuition room fan charge)` : "");
+  const deductionReason = document.getElementById("deductionReason").value.trim();
+  setOutput("deductionFormula", deduction ? `-${money.format(deduction)}${deductionReason ? ` (${deductionReason})` : ""}` : "");
   setOutput("otherFormula", otherCharges ? ` + ${money.format(otherCharges)}(other charges)` : "");
 
   const otherChargesReason = document.getElementById("otherChargesReason").value.trim();
@@ -510,9 +513,13 @@ async function storePickedImage(field, dataUrl) {
   const flattened = await compositeOntoWhite(dataUrl);
   setPreviewImage(field.preview, field.inputId, flattened);
   await Preferences.set({ key: imageKey(field.inputId), value: flattened });
+
+  if (field.ocrTargetId) {
+    runOcr(flattened, field.ocrTargetId);
+  }
 }
 
-function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) {
+function attachImageCapture({ inputId, previewId, ocrTargetId }) {
   const button = document.getElementById(`${inputId}Btn`);
   const preview = document.getElementById(previewId);
 
@@ -520,88 +527,59 @@ function attachImageCapture({ inputId, previewId, ocrTargetId, useFilePicker }) 
     if (!value) {
       return;
     }
-    // A QR/signature image saved before this field switched from
-    // Camera.getPhoto to a file picker was captured through the old,
-    // lossy JPEG re-encode path — any transparency in it was already
-    // flattened to black before it was ever stored, so there's nothing
-    // left to fix by loading it. Discard it instead of redisplaying a
-    // black box on every app open; the placeholder prompts a fresh pick.
-    if (useFilePicker && value.startsWith("data:image/jpeg")) {
+    // An image saved before this field switched from Camera.getPhoto to a
+    // file picker was captured through the old, lossy JPEG re-encode
+    // path — any transparency in it was already flattened to black
+    // before it was ever stored, so there's nothing left to fix by
+    // loading it. Discard it instead of redisplaying a black box on
+    // every app open; the placeholder prompts a fresh pick.
+    if (value.startsWith("data:image/jpeg")) {
       Preferences.remove({ key: imageKey(inputId) });
       return;
     }
     setPreviewImage(preview, inputId, value);
   });
 
-  if (useFilePicker) {
-    // QR/signature images are often pre-made graphics with transparency
-    // (e.g. a signature exported as a PNG with a transparent background).
-    // Capacitor's Camera plugin always re-encodes its result as JPEG
-    // (Bitmap.CompressFormat.JPEG, hardcoded natively, no PNG option) —
-    // JPEG has no alpha channel, so any transparent pixels get flattened
-    // to whatever RGB value sits beneath them, which is black for most
-    // PNGs. Picking through a plain file input reads the original file
-    // bytes untouched, so transparency survives.
-    //
-    // The OS's default file-input chooser doesn't reliably offer a
-    // "Camera" option on every device (confirmed missing on a real one),
-    // unlike Capacitor's own Camera.getPhoto(source: Prompt) dialog used
-    // for the meter photos below — so this field gets its own small
-    // "Take photo / Choose from gallery" sheet (#imageSourceOverlay)
-    // instead of relying on either single picker alone: gallery goes
-    // through this file input (transparency-safe), camera goes through
-    // Camera.getPhoto with source: Camera specifically (a live photo
-    // never has transparency to lose in the first place).
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = "image/*";
-    fileInput.hidden = true;
-    document.body.appendChild(fileInput);
+  // Images are often pre-made graphics with transparency (e.g. a
+  // signature exported as a PNG with a transparent background).
+  // Capacitor's Camera plugin always re-encodes its result as JPEG
+  // (Bitmap.CompressFormat.JPEG, hardcoded natively, no PNG option) —
+  // JPEG has no alpha channel, so any transparent pixels get flattened to
+  // whatever RGB value sits beneath them, which is black for most PNGs.
+  // Picking through a plain file input reads the original file bytes
+  // untouched, so transparency survives.
+  //
+  // The OS's default file-input chooser doesn't reliably offer a
+  // "Camera" option on every device (confirmed missing on a real one),
+  // so every image field (meter photos included) gets the same small
+  // "Take photo / Choose from gallery" sheet (#imageSourceOverlay)
+  // instead of relying on either single picker alone: gallery goes
+  // through this file input (transparency-safe), camera goes through
+  // Camera.getPhoto with source: Camera specifically (a live photo never
+  // has transparency to lose in the first place).
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.hidden = true;
+  document.body.appendChild(fileInput);
 
-    const field = { inputId, preview, fileInput };
+  const field = { inputId, preview, fileInput, ocrTargetId };
 
-    fileInput.addEventListener("change", async () => {
-      const file = fileInput.files && fileInput.files[0];
-      fileInput.value = "";
-      if (!file) {
-        return;
-      }
-      try {
-        const dataUrl = await readFileAsDataUrl(file);
-        await storePickedImage(field, dataUrl);
-      } catch (error) {
-        console.error("Image selection failed", error);
-      }
-    });
-
-    button.addEventListener("click", () => openImageSourceSheet(field));
-    return;
-  }
-
-  button.addEventListener("click", async () => {
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files && fileInput.files[0];
+    fileInput.value = "";
+    if (!file) {
+      return;
+    }
     try {
-      const photo = await Camera.getPhoto({
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Prompt,
-        quality: 80,
-        promptLabelHeader: "Add photo",
-        promptLabelPhoto: "Choose from gallery",
-        promptLabelPicture: "Take photo",
-      });
-
-      setPreviewImage(preview, inputId, photo.dataUrl);
-      await Preferences.set({ key: imageKey(inputId), value: photo.dataUrl });
-
-      if (ocrTargetId) {
-        runOcr(photo.dataUrl, ocrTargetId);
-      }
+      const dataUrl = await readFileAsDataUrl(file);
+      await storePickedImage(field, dataUrl);
     } catch (error) {
-      if (error && error.message === "User cancelled photos app") {
-        return;
-      }
-      console.error("Photo capture failed", error);
+      console.error("Image selection failed", error);
     }
   });
+
+  button.addEventListener("click", () => openImageSourceSheet(field));
 }
 
 function lockViewportHeight() {

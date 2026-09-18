@@ -531,12 +531,22 @@ textarea {
   width: 200px;
 }
 
-.qr-placeholder img,
 .signature-placeholder img,
 .image-placeholder img {
   display: block;
   height: 100%;
   object-fit: cover;
+  width: 100%;
+}
+
+.qr-placeholder img {
+  /* A QR code cropped to fill the box (object-fit: cover) can lose its
+     corner finder patterns and become unscannable — unlike the meter/
+     signature photos, this one has to show the uploaded image exactly
+     as-is, letterboxed rather than cropped. */
+  display: block;
+  height: 100%;
+  object-fit: contain;
   width: 100%;
 }
 

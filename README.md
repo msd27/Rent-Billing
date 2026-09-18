@@ -23,11 +23,17 @@ sharing one codebase.
   appended in parentheses after the Other charges amount on the invoice
   (`Other charges (অন্য খৰচ) = 0 (repair charge)`); left empty, it adds
   nothing.
+- A "Deduction reason" text field (`#deductionReason`, right after
+  "Deduction") replaces what used to be a hardcoded
+  "(tuition room fan charge)" label on the invoice regardless of what the
+  deduction actually was. Same pattern as "Other charges reason": appended
+  in parentheses after the deduction amount when filled in
+  (`= 3,000 + 288-15 (late fee)`), omitted entirely when empty.
 - A "Refresh" button in the top-right of the header (`#refreshBtn`,
   `resetForNewInvoice()` in `src/app.js`) clears everything specific to
   one invoice — room, tenant, billing month, readings, rate, rent,
-  deduction, other charges + its reason, both meter dates, and the
-  current/previous meter photos — for starting the next tenant/month
+  deduction + its reason, other charges + its reason, both meter dates,
+  and the current/previous meter photos — for starting the next tenant/month
   without re-typing from scratch. It deliberately leaves Address, UPI ID,
   the payment QR image, and the owner's signature image alone: those
   belong to the landlord, rarely change, and are only ever updated
@@ -120,16 +126,26 @@ sharing one codebase.
   "INVOICE" heading.
 - The meter photo boxes, QR box, billing table, and address box all carry
   a soft drop shadow for a raised "card" look instead of flat borders.
-- Tapping the current/previous meter image fields opens the native "Take
-  Photo / Choose from Gallery" prompt (via `@capacitor/camera`,
-  `source: CameraSource.Prompt`). The QR and signature fields open a small
-  in-app "Take photo / Choose from gallery" sheet instead
-  (`#imageSourceOverlay`) — gallery goes through a plain file input (see
-  below for why: it preserves PNG transparency), camera goes through
-  `Camera.getPhoto` with `source: CameraSource.Camera` specifically. A
-  single OS file-input chooser was tried first, on the assumption it would
-  also offer a camera option — confirmed missing on a real device, so
-  there's no assumption left here: both paths are explicit.
+- The meter and signature photos use `object-fit: cover` (crop to fill the
+  box) but the QR image uses `object-fit: contain` instead
+  (`.qr-placeholder img` in `src/styles.css`) — cropping a QR code to fill
+  a fixed box can cut off its corner finder patterns and make it
+  unscannable, so it's shown exactly as uploaded (letterboxed, never
+  cropped) rather than filled like the other photos.
+- All four "Add photo" buttons (current/previous meter image, QR,
+  signature) open the same in-app "Take photo / Choose from gallery"
+  sheet (`#imageSourceOverlay`) — gallery goes through a plain file input
+  (see below for why: it preserves PNG transparency), camera goes through
+  `Camera.getPhoto` with `source: CameraSource.Camera` specifically. The
+  meter photos used to go through Capacitor's own `Camera.getPhoto(source:
+  CameraSource.Prompt)` dialog instead, on the assumption that native
+  prompt would reliably offer both options — same wrong assumption as the
+  single OS file-input chooser tried even earlier, confirmed missing a
+  camera option on a real device. All four fields now share one explicit,
+  known-working path instead of each field trusting a different picker.
+  OCR for the meter fields (`ocrTargetId`) runs from this same shared
+  `storePickedImage()` path now, whichever of the two ways the photo came
+  in.
 - After capturing the current or previous meter photo, on-device OCR
   (Tesseract.js, fully self-hosted — no CDN calls, works offline) crops to
   just the meter's green LCD display, binarizes it for contrast, and reads
@@ -295,8 +311,8 @@ running again.
   path) with the black already baked in permanently — reloading the app
   kept redisplaying that stale, already-broken image no matter how
   correct the new capture code was, since it never got a chance to run
-  again. Fixed by detecting that case on load (a `useFilePicker` field
-  whose stored value is `data:image/jpeg`) and discarding it back to the
+  again. Fixed by detecting that case on load (any stored image value
+  that's a `data:image/jpeg`) and discarding it back to the
   empty placeholder instead, so the next photo you add actually goes
   through the fixed path. If you've hit this bug before, you'll need to
   re-add the QR/signature photo once after updating — it won't fix
