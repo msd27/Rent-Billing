@@ -23,6 +23,20 @@ sharing one codebase.
   appended in parentheses after the Other charges amount on the invoice
   (`Other charges (অন্য খৰচ) = 0 (repair charge)`); left empty, it adds
   nothing.
+- A "Refresh" button in the top-right of the header (`#refreshBtn`,
+  `resetForNewInvoice()` in `src/app.js`) clears everything specific to
+  one invoice — room, tenant, billing month, readings, rate, rent,
+  deduction, other charges + its reason, both meter dates, and the
+  current/previous meter photos — for starting the next tenant/month
+  without re-typing from scratch. It deliberately leaves Address, UPI ID,
+  the payment QR image, and the owner's signature image alone: those
+  belong to the landlord, rarely change, and are only ever updated
+  manually via their own "Add photo" buttons or by editing the address
+  text directly — a refresh should never silently wipe them. Cleared text
+  fields fall back to a placeholder naming the field (e.g. "Room",
+  "Tenant name") so it's obvious what belongs there; cleared photos
+  revert to their normal "Add current/previous meter image" placeholder.
+  The action asks for confirmation first since it can't be undone.
 - The screen is three top-level pieces stacked in `.app-shell`, not two:
   `.app-header` (logo + "Rent Billing"/"Invoice Builder") pinned at the
   very top, then the invoice preview, then the form panel — the brand

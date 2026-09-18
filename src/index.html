@@ -25,6 +25,14 @@
             <h1>Invoice Builder</h1>
           </div>
         </div>
+        <button
+          id="refreshBtn"
+          class="secondary-btn refresh-btn"
+          type="button"
+          title="Clear fields and meter photos for a new invoice (keeps Address, UPI ID, QR code, and signature)"
+        >
+          Refresh
+        </button>
       </header>
 
       <section class="controls" aria-label="Invoice controls">
@@ -32,15 +40,15 @@
         <div class="control-grid">
           <label>
             Room
-            <input id="room" value="ROOM-4" />
+            <input id="room" value="ROOM-4" placeholder="Room" />
           </label>
           <label>
             Tenant name
-            <input id="tenant" value="NIRUPOMA RABHA" />
+            <input id="tenant" value="NIRUPOMA RABHA" placeholder="Tenant name" />
           </label>
           <label>
             Billing month
-            <input id="billingMonth" value="AUGUST 2026" />
+            <input id="billingMonth" value="AUGUST 2026" placeholder="Billing month" />
           </label>
           <label>
             UPI ID
@@ -59,45 +67,45 @@ GOALPARA, ASSAM-783124</textarea>
         <div class="control-grid">
           <label>
             Current reading
-            <input id="currentReading" type="number" value="190" />
+            <input id="currentReading" type="number" value="190" placeholder="Current reading" />
             <span id="currentReadingOcrStatus" class="ocr-status" role="status"></span>
           </label>
           <label>
             Previous reading
-            <input id="previousReading" type="number" value="142" />
+            <input id="previousReading" type="number" value="142" placeholder="Previous reading" />
             <span id="previousReadingOcrStatus" class="ocr-status" role="status"></span>
           </label>
           <label>
             Rate per unit
-            <input id="rate" type="number" value="6" />
+            <input id="rate" type="number" value="6" placeholder="Rate per unit" />
           </label>
           <label>
             Room rent
-            <input id="rent" type="number" value="3000" />
+            <input id="rent" type="number" value="3000" placeholder="Room rent" />
           </label>
           <label>
             Deduction
-            <input id="deduction" type="number" value="15" />
+            <input id="deduction" type="number" value="15" placeholder="Deduction" />
           </label>
           <label>
             Other charges
-            <input id="otherCharges" type="number" value="0" />
+            <input id="otherCharges" type="number" value="0" placeholder="Other charges" />
           </label>
         </div>
 
         <label>
           Other charges reason
-          <input id="otherChargesReason" placeholder="e.g. repair charge" />
+          <input id="otherChargesReason" placeholder="Other charges reason" />
         </label>
 
         <div class="control-grid">
           <label>
             Current meter date
-            <input id="currentDate" value="1st September 2026" />
+            <input id="currentDate" value="1st September 2026" placeholder="Current meter date" />
           </label>
           <label>
             Previous meter date
-            <input id="previousDate" value="30 June 2026" />
+            <input id="previousDate" value="30 June 2026" placeholder="Previous meter date" />
           </label>
         </div>
 

@@ -63,6 +63,51 @@ function imageKey(inputId) {
   return `rent-billing-${inputId}`;
 }
 
+// Address, UPI ID, the payment QR, and the owner's signature belong to the
+// landlord and almost never change between invoices — Refresh leaves them
+// alone and only clears the per-invoice fields/photos (room, tenant,
+// readings, dates, meter photos). Those two stay editable only through
+// their own "Add photo" buttons.
+const REFRESH_STICKY_FIELDS = new Set(["address", "upi"]);
+const REFRESH_STICKY_IMAGES = new Set(["qrImage", "signatureImage"]);
+
+const IMAGE_PLACEHOLDER_TEXT = {
+  currentImagePreview: "Add current meter image",
+  previousImagePreview: "Add previous meter image",
+};
+
+async function resetForNewInvoice() {
+  const confirmed = window.confirm(
+    "Clear all fields and meter photos for a new invoice? Address, UPI ID, QR code, and signature will be kept.",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  await Promise.all(
+    fields
+      .filter((id) => !REFRESH_STICKY_FIELDS.has(id))
+      .map(async (id) => {
+        document.getElementById(id).value = "";
+        await Preferences.remove({ key: fieldKey(id) });
+      }),
+  );
+
+  document.getElementById("currentReadingOcrStatus").textContent = "";
+  document.getElementById("previousReadingOcrStatus").textContent = "";
+
+  await Promise.all(
+    images
+      .filter(({ inputId }) => !REFRESH_STICKY_IMAGES.has(inputId))
+      .map(async ({ inputId, previewId }) => {
+        document.getElementById(previewId).textContent = IMAGE_PLACEHOLDER_TEXT[previewId] || "";
+        await Preferences.remove({ key: imageKey(inputId) });
+      }),
+  );
+
+  renderInvoice();
+}
+
 function refreshGeneratedAt() {
   generatedAt = new Intl.DateTimeFormat("en-IN", {
     dateStyle: "medium",
@@ -850,6 +895,7 @@ async function init() {
   images.forEach(attachImageCapture);
 
   document.getElementById("printBtn").addEventListener("click", openPdfPreview);
+  document.getElementById("refreshBtn").addEventListener("click", resetForNewInvoice);
   document.getElementById("pdfPreviewClose").addEventListener("click", closePdfPreview);
   document.getElementById("pdfPreviewConfirm").addEventListener("click", confirmPdfExport);
   document.getElementById("pdfPreviewPayBtn").addEventListener("click", payWithUpi);

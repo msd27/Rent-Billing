@@ -103,6 +103,11 @@ body {
   gap: 12px;
 }
 
+.refresh-btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .brand-logo {
   flex: 0 0 auto;
   height: 40px;
