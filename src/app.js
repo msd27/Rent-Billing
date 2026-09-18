@@ -28,8 +28,8 @@ const fields = [
 const images = [
   { inputId: "currentImage", previewId: "currentImagePreview", ocrTargetId: "currentReading" },
   { inputId: "previousImage", previewId: "previousImagePreview", ocrTargetId: "previousReading" },
-  { inputId: "qrImage", previewId: "qrPreview", ocrTargetId: null },
-  { inputId: "signatureImage", previewId: "signaturePreview", ocrTargetId: null },
+  { inputId: "qrImage", previewId: "qrPreview", ocrTargetId: null, requiresPin: true },
+  { inputId: "signatureImage", previewId: "signaturePreview", ocrTargetId: null, requiresPin: true },
 ];
 
 const fieldHighlightTargets = {
@@ -497,6 +497,107 @@ function compositeOntoWhite(dataUrl) {
   });
 }
 
+const PIN_KEY = "rent-billing-security-pin";
+let pinResolve = null;
+let pinMode = "enter";
+
+function showPinOverlay(mode, message) {
+  pinMode = mode;
+  const title = document.getElementById("pinTitle");
+  const msg = document.getElementById("pinMessage");
+  const input = document.getElementById("pinInput");
+  const confirmInput = document.getElementById("pinConfirmInput");
+  const error = document.getElementById("pinError");
+  const forgotBtn = document.getElementById("pinForgot");
+
+  error.hidden = true;
+  input.value = "";
+  confirmInput.value = "";
+
+  if (mode === "set") {
+    title.textContent = "Set a PIN";
+    msg.textContent = message || "Set a PIN to protect the QR code and signature from being changed by accident.";
+    confirmInput.hidden = false;
+    forgotBtn.hidden = true;
+  } else {
+    title.textContent = "Enter PIN";
+    msg.textContent = message || "Enter your PIN to continue.";
+    confirmInput.hidden = true;
+    forgotBtn.hidden = false;
+  }
+
+  document.getElementById("pinOverlay").hidden = false;
+  input.focus();
+}
+
+function closePinOverlay() {
+  document.getElementById("pinOverlay").hidden = true;
+}
+
+function resolvePin(granted) {
+  closePinOverlay();
+  const resolve = pinResolve;
+  pinResolve = null;
+  if (resolve) {
+    resolve(granted);
+  }
+}
+
+// Gates the QR/signature "Add photo" buttons behind a PIN so they can't be
+// changed by an accidental tap, without needing any server: the PIN itself
+// (and its "forgot PIN" reset) lives entirely in this device's own
+// Preferences, same as everything else the app stores.
+function verifyPin() {
+  return new Promise((resolve) => {
+    pinResolve = resolve;
+    Preferences.get({ key: PIN_KEY }).then(({ value: storedPin }) => {
+      showPinOverlay(storedPin ? "enter" : "set");
+    });
+  });
+}
+
+async function submitPin() {
+  const input = document.getElementById("pinInput");
+  const confirmInput = document.getElementById("pinConfirmInput");
+  const error = document.getElementById("pinError");
+  const pin = input.value.trim();
+
+  if (pinMode === "set") {
+    if (pin.length < 4) {
+      error.textContent = "PIN must be at least 4 digits.";
+      error.hidden = false;
+      return;
+    }
+    if (pin !== confirmInput.value.trim()) {
+      error.textContent = "PINs don't match.";
+      error.hidden = false;
+      return;
+    }
+    await Preferences.set({ key: PIN_KEY, value: pin });
+    resolvePin(true);
+    return;
+  }
+
+  const { value: storedPin } = await Preferences.get({ key: PIN_KEY });
+  if (pin !== storedPin) {
+    error.textContent = "Incorrect PIN.";
+    error.hidden = false;
+    input.value = "";
+    input.focus();
+    return;
+  }
+  resolvePin(true);
+}
+
+async function forgotPin() {
+  const confirmed = window.confirm("Reset your PIN? You'll set a new one now.");
+  if (!confirmed) {
+    return;
+  }
+  await Preferences.remove({ key: PIN_KEY });
+  showPinOverlay("set", "Set a new PIN to protect the QR code and signature.");
+}
+
 let pendingImagePickerField = null;
 
 function openImageSourceSheet(field) {
@@ -519,7 +620,7 @@ async function storePickedImage(field, dataUrl) {
   }
 }
 
-function attachImageCapture({ inputId, previewId, ocrTargetId }) {
+function attachImageCapture({ inputId, previewId, ocrTargetId, requiresPin }) {
   const button = document.getElementById(`${inputId}Btn`);
   const preview = document.getElementById(previewId);
 
@@ -579,7 +680,12 @@ function attachImageCapture({ inputId, previewId, ocrTargetId }) {
     }
   });
 
-  button.addEventListener("click", () => openImageSourceSheet(field));
+  button.addEventListener("click", async () => {
+    if (requiresPin && !(await verifyPin())) {
+      return;
+    }
+    openImageSourceSheet(field);
+  });
 }
 
 function lockViewportHeight() {
@@ -879,6 +985,17 @@ async function init() {
   document.getElementById("pdfPreviewPayBtn").addEventListener("click", payWithUpi);
   document.getElementById("copyUpiBtn").addEventListener("click", copyUpiId);
   document.getElementById("ocrDebugClose").addEventListener("click", closeOcrDebugImage);
+
+  document.getElementById("pinClose").addEventListener("click", () => resolvePin(false));
+  document.getElementById("pinSubmit").addEventListener("click", submitPin);
+  document.getElementById("pinForgot").addEventListener("click", forgotPin);
+  ["pinInput", "pinConfirmInput"].forEach((id) => {
+    document.getElementById(id).addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        submitPin();
+      }
+    });
+  });
 
   document.getElementById("imageSourceClose").addEventListener("click", closeImageSourceSheet);
   document.getElementById("imageSourceGallery").addEventListener("click", () => {

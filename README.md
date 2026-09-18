@@ -43,6 +43,21 @@ sharing one codebase.
   "Tenant name") so it's obvious what belongs there; cleared photos
   revert to their normal "Add current/previous meter image" placeholder.
   The action asks for confirmation first since it can't be undone.
+- The Payment QR and Owner signature "Add photo" buttons are gated behind
+  a PIN (`verifyPin()`/`showPinOverlay()` in `src/app.js`, `#pinOverlay`)
+  — the meter photo buttons are unaffected. This is a soft deterrent
+  against an accidental tap changing them, not real security: the whole
+  app is client-side with no server, so the PIN lives in this device's
+  own Preferences alongside everything else, same as the rest of the
+  app's data. The first time either button is tapped, the app asks you to
+  set a PIN instead of entering one; every later tap asks for that PIN.
+  A "Forgot PIN?" link resets it on the spot (after a plain confirm — no
+  email or phone verification, since there's no backend to send one
+  through) and immediately asks you to set a new one, so a forgotten PIN
+  can never lock you out of your own signature/QR. The PIN is set
+  independently on every device/install — it is not synced or shared, and
+  a fresh install starts with no PIN (and no signature/QR image) until
+  one is set on that device.
 - The screen is three top-level pieces stacked in `.app-shell`, not two:
   `.app-header` (logo + "Rent Billing"/"Invoice Builder") pinned at the
   very top, then the invoice preview, then the form panel — the brand

@@ -381,6 +381,46 @@ textarea {
   margin-top: 8px;
 }
 
+.pin-panel {
+  max-width: 320px;
+}
+
+.pin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.pin-message {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.pin-input {
+  font-size: 20px;
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.pin-error {
+  color: #b3261e;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pin-body .primary-btn,
+.pin-forgot-btn {
+  width: 100%;
+}
+
+.pin-forgot-btn {
+  border-color: transparent;
+}
+
 .preview-wrap {
   grid-column: 2;
   grid-row: 2;

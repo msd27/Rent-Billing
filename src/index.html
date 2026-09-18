@@ -270,6 +270,23 @@ GOALPARA, ASSAM-783124</textarea>
       </div>
     </div>
 
+    <div id="pinOverlay" class="pdf-preview-overlay" hidden>
+      <div class="pdf-preview-panel pin-panel">
+        <div class="pdf-preview-header">
+          <span id="pinTitle">Enter PIN</span>
+          <button id="pinClose" class="secondary-btn" type="button">Close</button>
+        </div>
+        <div class="pin-body">
+          <p id="pinMessage" class="pin-message"></p>
+          <input id="pinInput" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="PIN" />
+          <input id="pinConfirmInput" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Confirm PIN" hidden />
+          <p id="pinError" class="pin-error" hidden></p>
+          <button id="pinSubmit" class="primary-btn" type="button">Continue</button>
+          <button id="pinForgot" class="secondary-btn pin-forgot-btn" type="button">Forgot PIN?</button>
+        </div>
+      </div>
+    </div>
+
     <div id="ocrDebugOverlay" class="pdf-preview-overlay" hidden>
       <div class="pdf-preview-panel">
         <div class="pdf-preview-header">
