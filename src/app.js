@@ -304,30 +304,39 @@ const GREEN_DETECTOR_TIERS = [
 
 function findGreenBoundingBox(imageData, test) {
   const { data, width, height } = imageData;
-  const step = 2;
-  let minX = width;
-  let minY = height;
-  let maxX = 0;
-  let maxY = 0;
-  let count = 0;
 
-  for (let y = 0; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      const i = (y * width + x) * 4;
-      if (test(data[i], data[i + 1], data[i + 2])) {
-        count += 1;
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
-    }
+  // A plain bounding box over every matching pixel, with no requirement
+  // that they form one coherent cluster, is exactly as fragile as it
+  // sounds: a real device photo had a single stray strict-green match far
+  // from the actual display (the meter body itself carrying a slight
+  // color cast, as seen before) balloon the "region" out to cover a large
+  // label sticker too, which then fed a wildly wrong area into
+  // binarization. Finding the largest connected cluster of matches
+  // instead — the same approach already used for bezel detection — means
+  // an isolated outlier pixel elsewhere in the photo can't distort the
+  // result.
+  const isMatch = (x, y) => {
+    const i = (y * width + x) * 4;
+    return test(data[i], data[i + 1], data[i + 2]);
+  };
+  const components = findInkComponents(imageData, { x0: 0, y0: 0, x1: width, y1: height }, isMatch);
+  if (components.length === 0) {
+    return null;
   }
 
+  let best = components[0];
+  for (const c of components) {
+    if (c.count > best.count) best = c;
+  }
+
+  const minX = best.x0;
+  const minY = best.y0;
+  const maxX = best.x1;
+  const maxY = best.y1;
   const regionWidth = maxX - minX;
   const regionHeight = maxY - minY;
   const hasEnoughSignal =
-    count >= GREEN_MIN_PIXELS &&
+    best.count >= GREEN_MIN_PIXELS &&
     regionWidth > 0 &&
     regionHeight > 0 &&
     (regionWidth * regionHeight) / (width * height) >= GREEN_MIN_AREA_FRACTION;
@@ -373,7 +382,7 @@ function computeOtsuThreshold(histogram, totalPixels) {
   return bestThreshold;
 }
 
-function binarizeDisplayCanvas(canvas) {
+function binarizeDisplayCanvas(canvas, region) {
   // Reusing the green-detector test here (as this used to) only makes
   // sense for a real green-backlit LCD — for anything else (a plain
   // black-on-white reference image, a different backlight color, or even
@@ -384,27 +393,46 @@ function binarizeDisplayCanvas(canvas) {
   // histogram, so it works regardless of the display's real colors.
   const ctx = canvas.getContext("2d");
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const { data } = imageData;
+  const { data, width, height } = imageData;
   const pixelCount = data.length / 4;
 
-  const histogram = new Array(256).fill(0);
   const luminances = new Uint8ClampedArray(pixelCount);
   for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-    const luminance = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
-    luminances[p] = luminance;
-    histogram[luminance] += 1;
+    luminances[p] = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
   }
 
-  const threshold = computeOtsuThreshold(histogram, pixelCount);
+  // Both the threshold itself and which side of it counts as "ink" need to
+  // come from the display's OWN area, not the whole padded crop — a real
+  // device photo showed the outer plastic body's brightness dominating the
+  // whole-canvas histogram enough to push the cutoff to where almost the
+  // entire display (background *and* digit ink alike) fell on the dark
+  // side, with only a stray reflection surviving as "light"; a "ROOM-2"
+  // label sticker was large and dark enough, in the same photo, to also
+  // flip which side of even a correct threshold counted as the minority.
+  // Restricting both to the caller-supplied display-only region (when
+  // given) keeps both decisions about the display, not whatever photo
+  // happens to surround it.
+  const regionBox = region ?? { x0: 0, y0: 0, x1: width, y1: height };
+  const rx0 = Math.max(0, Math.round(regionBox.x0));
+  const ry0 = Math.max(0, Math.round(regionBox.y0));
+  const rx1 = Math.min(width, Math.round(regionBox.x1));
+  const ry1 = Math.min(height, Math.round(regionBox.y1));
 
-  let darkCount = 0;
+  const regionHistogram = new Array(256).fill(0);
+  let regionTotal = 0;
+  for (let y = ry0; y < ry1; y++) {
+    for (let x = rx0; x < rx1; x++) {
+      regionHistogram[luminances[y * width + x]]++;
+      regionTotal++;
+    }
+  }
+  const threshold = regionTotal > 0 ? computeOtsuThreshold(regionHistogram, regionTotal) : 128;
+
+  let regionDarkCount = 0;
   for (let t = 0; t <= threshold; t++) {
-    darkCount += histogram[t];
+    regionDarkCount += regionHistogram[t];
   }
-  // The digit strokes are always a small minority of a display's area, so
-  // whichever side of the threshold covers fewer pixels is the ink/segment
-  // color — regardless of whether that's the dark or the light side.
-  const darkIsForeground = darkCount < pixelCount - darkCount;
+  const darkIsForeground = regionTotal > 0 ? regionDarkCount < regionTotal - regionDarkCount : true;
 
   for (let p = 0, i = 0; p < pixelCount; p++, i += 4) {
     const isDark = luminances[p] <= threshold;
@@ -626,6 +654,7 @@ function mergeInkFragments(components, mergeRadius) {
     y0: Math.min(...members.map((m) => m.y0)),
     x1: Math.max(...members.map((m) => m.x1)),
     y1: Math.max(...members.map((m) => m.y1)),
+    count: members.reduce((sum, m) => sum + (m.count ?? 0), 0),
   }));
 }
 
@@ -878,10 +907,24 @@ async function recognizeSevenSegmentReading(canvas, contentBox) {
     y0: Math.max(scanBox.y0, c.y0 - EROSION_RADIUS),
     x1: Math.min(scanBox.x1, c.x1 + EROSION_RADIUS),
     y1: Math.min(scanBox.y1, c.y1 + EROSION_RADIUS),
+    count: c.count,
   }));
   const mergeRadius = Math.max(2, (scanBox.y1 - scanBox.y0) * 0.05);
   const merged = mergeInkFragments(rawComponents, mergeRadius);
-  const boxes = splitWideComponents(selectMainDigitComponents(merged));
+  // A row of small, individually-solid decorative marks (the tick marks
+  // along a display's edge, seen on a real device photo) can each pass the
+  // fill-ratio check above on its own, then chain together through the
+  // merge step into one long, mostly-empty strip spanning much of the
+  // display's width — exactly the "bounding box far bigger than its own
+  // ink" shape that check exists to catch, just assembled one merge later
+  // instead of already present beforehand. Applying the same check again
+  // after merging catches that shape without needing to special-case tick
+  // marks directly.
+  const compactMerged = merged.filter((c) => {
+    const area = (c.x1 - c.x0) * (c.y1 - c.y0);
+    return area > 0 && c.count / area >= MIN_FILL_RATIO;
+  });
+  const boxes = splitWideComponents(selectMainDigitComponents(compactMerged));
 
   if (boxes.length < 2 || boxes.length > 6) {
     return null;
@@ -1136,7 +1179,6 @@ async function cropToDisplayRegion(dataUrl) {
   cropCanvas.height = cropH * GREEN_CROP_UPSCALE;
   const cropCtx = cropCanvas.getContext("2d");
   cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropCanvas.width, cropCanvas.height);
-  binarizeDisplayCanvas(cropCanvas);
 
   // The padding added above (to avoid clipping digit strokes right at the
   // detected edge) reaches outside the real display into whatever
@@ -1147,13 +1189,17 @@ async function cropToDisplayRegion(dataUrl) {
   // make the segment decoder's edge-to-edge ink scan treat the border
   // itself as a huge "digit". Pass along the padding-free content
   // rectangle (in this canvas's own pixel coordinates) so the decoder can
-  // scan only inside the real display area.
+  // scan only inside the real display area — and so binarization itself
+  // can be told where the display actually is, not just handed the whole
+  // padded crop.
   const contentBox = {
     x0: (minX - cropX) * GREEN_CROP_UPSCALE,
     y0: (minY - cropY) * GREEN_CROP_UPSCALE,
     x1: (minX - cropX + regionWidth) * GREEN_CROP_UPSCALE,
     y1: (minY - cropY + regionHeight) * GREEN_CROP_UPSCALE,
   };
+
+  binarizeDisplayCanvas(cropCanvas, contentBox);
 
   return {
     dataUrl: cropCanvas.toDataURL("image/png"),
@@ -1164,7 +1210,23 @@ async function cropToDisplayRegion(dataUrl) {
   };
 }
 
+// Picking a new photo fires runOcr without waiting for any run already in
+// flight for that same field — swap the photo again before the first one
+// finishes (easy to do; the deterministic path is instant but the
+// Tesseract fallback it sometimes falls through to is not) and both calls
+// race to write the same input's value. Without this, whichever happened
+// to finish last would win even if it was reading the OLDER photo,
+// silently overwriting a correct fresh result with a stale one — a real
+// device report of a second photo swap "not working" is exactly what that
+// looks like. Each call stamps its own generation into this map and checks
+// it's still current before writing anything back out.
+const ocrRunGeneration = {};
+
 async function runOcr(dataUrl, targetId) {
+  const generation = (ocrRunGeneration[targetId] || 0) + 1;
+  ocrRunGeneration[targetId] = generation;
+  const isCurrent = () => ocrRunGeneration[targetId] === generation;
+
   const status = document.getElementById(`${targetId}OcrStatus`);
   if (status) {
     status.textContent = "Reading meter photo…";
@@ -1199,6 +1261,14 @@ async function runOcr(dataUrl, targetId) {
       reading = extractReadingFromText(text);
     }
 
+    // A newer runOcr call for this same field (the user swapped the photo
+    // again before this one finished) has since started — let it own the
+    // field instead of overwriting its result, or its in-progress status,
+    // with this stale run's outcome.
+    if (!isCurrent()) {
+      return;
+    }
+
     if (reading !== null) {
       // A meter always shows the reading padded to a fixed digit count
       // ("000162"), but the field should hold the actual number.
@@ -1212,15 +1282,36 @@ async function runOcr(dataUrl, targetId) {
         status.style.cursor = "";
         status.onclick = null;
       }
-    } else if (status) {
-      const snippet = text.replace(/\s+/g, " ").trim().slice(0, 40) || "(no text found)";
-      const tierInfo = cropped ? `tier:${tier} ` : "";
-      status.textContent = `Couldn't read digits [crop:${cropped ? "y" : "n"} ${tierInfo}saw:"${snippet}"] — tap to view processed image`;
-      status.style.cursor = "pointer";
-      status.onclick = () => openOcrDebugImage(displayDataUrl);
+    } else {
+      // Leaving a prior photo's reading in place when this one fails to
+      // decode looks, at a glance, exactly like the app ignoring the new
+      // photo entirely — a real device report described swapping the photo
+      // a second time as simply "not working". Clearing it makes clear
+      // nothing was read from *this* photo, rather than silently carrying
+      // over a number that may no longer match what's on screen.
+      const input = document.getElementById(targetId);
+      input.value = "";
+      renderInvoice();
+      Preferences.set({ key: fieldKey(targetId), value: input.value });
+      if (status) {
+        const snippet = text.replace(/\s+/g, " ").trim().slice(0, 40) || "(no text found)";
+        const tierInfo = cropped ? `tier:${tier} ` : "";
+        status.textContent = `Couldn't read digits [crop:${cropped ? "y" : "n"} ${tierInfo}saw:"${snippet}"] — tap to view processed image`;
+        status.style.cursor = "pointer";
+        status.onclick = () => openOcrDebugImage(displayDataUrl);
+      }
     }
   } catch (error) {
     console.error("OCR failed", error);
+    if (!isCurrent()) {
+      return;
+    }
+    const input = document.getElementById(targetId);
+    if (input) {
+      input.value = "";
+      renderInvoice();
+      Preferences.set({ key: fieldKey(targetId), value: input.value });
+    }
     if (status) {
       const reason = error && error.message ? error.message : "OCR failed";
       status.textContent = `${reason} — please enter manually`;

@@ -497,3 +497,44 @@ running again.
   through the fixed path. If you've hit this bug before, you'll need to
   re-add the QR/signature photo once after updating — it won't fix
   itself retroactively.
+- Two more real-photo bugs surfaced after the neural-network classifier
+  landed, both in cropping/segmentation rather than the model itself:
+  - `binarizeDisplayCanvas` computed its Otsu threshold, and which side of
+    it counted as "ink", over the whole padded crop — a real photo where a
+    large "ROOM-2" label sticker sat inside that padding was dark enough to
+    shift the threshold and flip the ink/background decision, inverting the
+    whole display's colors. Fixed by restricting both to the actual
+    display's own content box (now computed before binarization runs,
+    rather than after).
+  - `findGreenBoundingBox` took a plain bounding box over every
+    color-matching pixel with no requirement that they form one connected
+    region — a stray strict-green match elsewhere in the same photo
+    ballooned the detected region out to include that same label sticker.
+    Fixed by reusing the connected-component approach already used for
+    bezel detection and keeping only the largest cluster.
+  - Fixing those two uncovered a third, still-open one: a decorative
+    tick/scallop row along the display's top edge, made of many small
+    fragments, merges sideways with each digit's own (blur-worn-thin) top
+    bar segment before it can merge downward into the rest of that digit —
+    permanently severing the digit's top from its body and undercutting its
+    merged height enough to fail the alignment filter. Two different
+    redesigns of the merge/grouping step (column-projection based
+    segmentation, then a same-column vertical-reach exception) each fixed
+    this case but regressed at least one previously-correct real photo
+    (real6.jpg or real7.jpg), so both were reverted rather than trade a
+    known-working case for a new one. Left open for now — a photo with this
+    tick-row pattern won't read correctly yet.
+- Picking a new meter photo fired OCR without waiting for (or cancelling)
+  any run already in flight for that same field — swapping the photo again
+  before the first read finished let both calls race to write the same
+  input, and whichever happened to *finish* last won even if it was reading
+  the *older* photo. On a real device that looked exactly like "changing
+  the photo a second time doesn't work": the field would silently keep
+  showing a stale reading from the previous photo. Fixed with a per-field
+  generation counter (`ocrRunGeneration` in `src/app.js`) — each `runOcr`
+  call stamps its own generation and checks it's still current before
+  writing a result, so only the most recently started read for a field can
+  ever update it. Separately, a failed read used to leave whatever reading
+  was already in the field untouched, which looks identical to "nothing
+  happened" even without any race — now a failed read clears the field
+  instead, so it's clear nothing was detected for *this* photo.
