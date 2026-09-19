@@ -6,6 +6,7 @@ import { Share } from "@capacitor/share";
 import { createWorker, PSM, OEM } from "tesseract.js";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import * as tf from "@tensorflow/tfjs";
 
 const fields = [
   "room",
@@ -645,6 +646,45 @@ function selectMainDigitComponents(components) {
   return aligned;
 }
 
+// On a low-contrast or lower-resolution crop, two adjacent digits with a
+// narrow real gap between them can still end up in the same merged
+// component (the gap column doesn't come out perfectly ink-free) — a real
+// device report showed exactly this ("00" fused into one box while the
+// rest of the reading split correctly). A fused box is reliably ~2x (or
+// more) the width of a normal digit slot, so split anything that wide into
+// that many equal slots rather than let one non-digit-shaped box fail the
+// whole reading.
+function splitWideComponents(boxes) {
+  if (boxes.length < 2) {
+    return boxes;
+  }
+  // "1" is legitimately much narrower than every other digit, so exclude
+  // narrow boxes when establishing what a normal single-digit slot looks
+  // like — otherwise they'd drag the reference width down and nothing
+  // (fused or not) would look "wide" by comparison.
+  const normalWidths = boxes.filter((b) => (b.x1 - b.x0) / (b.y1 - b.y0) >= 0.35).map((b) => b.x1 - b.x0);
+  if (normalWidths.length === 0) {
+    return boxes;
+  }
+  normalWidths.sort((a, b) => a - b);
+  const referenceWidth = normalWidths[Math.floor(normalWidths.length / 2)];
+
+  const result = [];
+  for (const box of boxes) {
+    const width = box.x1 - box.x0;
+    const slots = Math.round(width / referenceWidth);
+    if (slots < 2 || width < referenceWidth * 1.6) {
+      result.push(box);
+      continue;
+    }
+    const slotWidth = width / slots;
+    for (let i = 0; i < slots; i++) {
+      result.push({ x0: box.x0 + i * slotWidth, y0: box.y0, x1: box.x0 + (i + 1) * slotWidth, y1: box.y1 });
+    }
+  }
+  return result;
+}
+
 // contentBox is meant to already exclude the display's own dark bezel, but
 // that boundary was measured on the original, unbinarized photo, where a
 // real bezel's inner edge blurs into the glass over several pixels rather
@@ -752,7 +792,62 @@ function makeErodedInk(imageData, box, isInk, radius) {
 
 const EROSION_RADIUS = 2;
 
-function recognizeSevenSegmentReading(canvas, contentBox) {
+// The fixed segment-threshold classifier above turned out too brittle
+// against real photos (glare, blur, tilt, and font-style variation all
+// shift where segment ink actually falls relative to its fixed sampling
+// bands). Trained on a large synthetic dataset covering exactly that kind
+// of variation, this small CNN generalizes far better — the segment
+// classifier is kept only as what it already was tested to be reasonably
+// good at: a zero-dependency fallback if the model can't load.
+const DIGIT_MODEL_INPUT_SIZE = 32;
+let digitModelPromise = null;
+
+function getDigitModel() {
+  if (!digitModelPromise) {
+    digitModelPromise = tf.loadLayersModel("/model/digit-classifier/model.json");
+  }
+  return digitModelPromise;
+}
+
+async function classifyDigitWithModel(model, canvas, box) {
+  const size = DIGIT_MODEL_INPUT_SIZE;
+  const boxW = box.x1 - box.x0;
+  const boxH = box.y1 - box.y0;
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = size;
+  cropCanvas.height = size;
+  const cropCtx = cropCanvas.getContext("2d");
+  cropCtx.fillStyle = "white";
+  cropCtx.fillRect(0, 0, size, size);
+  // Letterbox rather than stretch to fill the square: aspect ratio (how
+  // much of the square ends up white padding vs. digit) is the strongest
+  // signal separating "1" from every other digit, and stretching a narrow
+  // box out to a square would erase it before the model ever saw it —
+  // must match the training data's preprocessing exactly.
+  const scale = Math.min(size / boxW, size / boxH);
+  const drawW = boxW * scale;
+  const drawH = boxH * scale;
+  const offsetX = (size - drawW) / 2;
+  const offsetY = (size - drawH) / 2;
+  cropCtx.drawImage(canvas, box.x0, box.y0, boxW, boxH, offsetX, offsetY, drawW, drawH);
+
+  const imgData = cropCtx.getImageData(0, 0, size, size);
+  const input = new Float32Array(size * size);
+  for (let i = 0, p = 0; i < imgData.data.length; i += 4, p++) {
+    const luminance = 0.299 * imgData.data[i] + 0.587 * imgData.data[i + 1] + 0.114 * imgData.data[i + 2];
+    // Matches training normalization: ink (dark) -> near 1, background -> near 0.
+    input[p] = 1 - luminance / 255;
+  }
+
+  return tf.tidy(() => {
+    const tensor = tf.tensor4d(input, [1, size, size, 1]);
+    const prediction = model.predict(tensor);
+    const digitIndex = prediction.argMax(-1).dataSync()[0];
+    return String(digitIndex);
+  });
+}
+
+async function recognizeSevenSegmentReading(canvas, contentBox) {
   const ctx = canvas.getContext("2d");
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const rawBox = contentBox ?? { x0: 0, y0: 0, x1: canvas.width, y1: canvas.height };
@@ -786,15 +881,22 @@ function recognizeSevenSegmentReading(canvas, contentBox) {
   }));
   const mergeRadius = Math.max(2, (scanBox.y1 - scanBox.y0) * 0.05);
   const merged = mergeInkFragments(rawComponents, mergeRadius);
-  const boxes = selectMainDigitComponents(merged);
+  const boxes = splitWideComponents(selectMainDigitComponents(merged));
 
   if (boxes.length < 2 || boxes.length > 6) {
     return null;
   }
 
+  let model = null;
+  try {
+    model = await getDigitModel();
+  } catch (error) {
+    console.error("Digit model failed to load, falling back to segment heuristic", error);
+  }
+
   let reading = "";
   for (const box of boxes) {
-    const digit = classifySevenSegmentDigit(imageData, box);
+    const digit = model ? await classifyDigitWithModel(model, canvas, box) : classifySevenSegmentDigit(imageData, box);
     if (digit === null) {
       return null;
     }
@@ -1076,7 +1178,7 @@ async function runOcr(dataUrl, targetId) {
     // glyph shape. Only fall back to Tesseract if it can't produce a
     // confident full reading (e.g. a non-seven-segment display, or a crop
     // that clipped a digit).
-    const segmentReading = cropCanvas ? recognizeSevenSegmentReading(cropCanvas, contentBox) : null;
+    const segmentReading = cropCanvas ? await recognizeSevenSegmentReading(cropCanvas, contentBox) : null;
 
     let reading = segmentReading;
     let text = "";

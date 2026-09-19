@@ -403,6 +403,50 @@ running again.
 - The detected reading strips its own leading zeros (`000162` → `162`)
   before landing in the field — a meter always pads its display to a fixed
   digit count, but that's not the number you'd type in by hand.
+- Replaced the segment-threshold digit classifier with a small trained
+  neural network (`models/digit-classifier/`, see that folder's README for
+  how it was built and retrained), after it kept failing in new ways on
+  real device photos even with correct segmentation — most recently
+  misreading "000509" as just "0" because two adjacent zeros stayed fused
+  after binarization, a case the fixed-threshold approach had no way to
+  recover from. Two changes together fixed the underlying segmentation
+  gap and swapped in the model:
+  - `splitWideComponents` catches a fused pair like that directly: a merged
+    box is reliably ~2x (or more) a normal digit slot's width, so anything
+    that wide gets split into that many equal slots instead of failing the
+    whole reading.
+  - The classifier itself is now a CNN (`classifyDigitWithModel`, loaded
+    once via `getDigitModel`/`tf.loadLayersModel`) trained on a large
+    synthetic dataset generated specifically to match this app's own
+    pipeline output — same corner-cut style range, same binarization
+    look, same kind of segmentation jitter, blur, and glare a real photo
+    produces. Runs fully offline (TensorFlow.js self-hosted like Tesseract
+    was, bundled via `import * as tf from "@tensorflow/tfjs"`; the model
+    files are ~194KB, fetched at runtime, not bundled into app.js). The
+    old segment-threshold function is kept only as a fallback for if the
+    model fails to load.
+  - Two data-generation bugs surfaced only by testing the very first
+    trained model against real photos, not caught by validation accuracy
+    alone (96.7% on a flawed dataset still shipped a model that
+    confidently misread a real "1" as "2"): training crops were based on
+    each digit's full nominal cell box, not the tight ink extent real
+    segmentation actually produces — for every digit except "1" those
+    are similar, but "1" is only as wide as one stroke, so its training
+    crops were far wider than what the app really hands the classifier.
+    Compounding that, crops were stretched to fill a square 32×32 input,
+    discarding aspect ratio — the single strongest cue separating "1"
+    from everything else — before the model ever saw it. Fixed by
+    cropping to the actual rendered ink's bounding box (scanned from the
+    canvas post-rotation, so it's correct regardless of simulated tilt)
+    and by letterboxing instead of stretching (preserving aspect ratio,
+    centered on a white background) in both the training generator and
+    `classifyDigitWithModel` — the two must match exactly, since a model
+    trained on one preprocessing and served the other performs worse than
+    either alone. Retrained: 97.4% validation accuracy, 1-vs-7 confusion
+    gone entirely, and verified end-to-end against all three real device
+    photos collected across this debugging session (previously "13",
+    nothing detected, and "0" / "240502" — now "162", "40", and "509", all
+    correct) plus the full existing synthetic regression set.
 - Meter photo boxes are a fixed, uniform size using `object-fit: cover`
   (see above), so the invoice's overall shape stays stable regardless of
   what photos you take — the exported PDF's page size still matches that

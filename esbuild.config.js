@@ -3,8 +3,11 @@ const { copyFileSync, mkdirSync } = require("fs");
 
 const watch = process.argv.includes("--watch");
 
+const { readdirSync } = require("fs");
+
 mkdirSync("www/fonts", { recursive: true });
 mkdirSync("www/tesseract/lang-data", { recursive: true });
+mkdirSync("www/model/digit-classifier", { recursive: true });
 copyFileSync("src/index.html", "www/index.html");
 copyFileSync("src/styles.css", "www/styles.css");
 copyFileSync(
@@ -25,6 +28,14 @@ copyFileSync(
   "node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz",
   "www/tesseract/lang-data/eng.traineddata.gz",
 );
+
+// The trained digit-classifier model (see models/digit-classifier/README.md
+// for how it was trained) is fetched at runtime by tf.loadLayersModel, so
+// its files just need to be copied alongside the rest of the app, not
+// bundled into app.js.
+for (const file of readdirSync("models/digit-classifier")) {
+  copyFileSync(`models/digit-classifier/${file}`, `www/model/digit-classifier/${file}`);
+}
 
 const options = {
   entryPoints: ["src/app.js"],
