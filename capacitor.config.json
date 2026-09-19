@@ -1,0 +1,8 @@
+{
+  "appId": "com.monoranjan.rentbilling",
+  "appName": "Rent Billing",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}
