@@ -334,14 +334,81 @@ function findGreenBoundingBox(imageData, test) {
   return hasEnoughSignal ? { minX, minY, maxX, maxY, regionWidth, regionHeight } : null;
 }
 
-function binarizeDisplayCanvas(canvas, test) {
+// Otsu's method: finds the luminance threshold that best separates a
+// bimodal histogram into two clusters by maximizing the variance between
+// them, with no assumption about which cluster is "foreground".
+function computeOtsuThreshold(histogram, totalPixels) {
+  let sumAll = 0;
+  for (let t = 0; t < 256; t++) {
+    sumAll += t * histogram[t];
+  }
+
+  let sumBelow = 0;
+  let countBelow = 0;
+  let bestThreshold = 0;
+  let bestVariance = -1;
+
+  for (let t = 0; t < 256; t++) {
+    countBelow += histogram[t];
+    if (countBelow === 0) {
+      continue;
+    }
+    const countAbove = totalPixels - countBelow;
+    if (countAbove === 0) {
+      break;
+    }
+
+    sumBelow += t * histogram[t];
+    const meanBelow = sumBelow / countBelow;
+    const meanAbove = (sumAll - sumBelow) / countAbove;
+    const betweenVariance = countBelow * countAbove * (meanBelow - meanAbove) * (meanBelow - meanAbove);
+
+    if (betweenVariance > bestVariance) {
+      bestVariance = betweenVariance;
+      bestThreshold = t;
+    }
+  }
+
+  return bestThreshold;
+}
+
+function binarizeDisplayCanvas(canvas) {
+  // Reusing the green-detector test here (as this used to) only makes
+  // sense for a real green-backlit LCD — for anything else (a plain
+  // black-on-white reference image, a different backlight color, or even
+  // JPEG compression noise on an otherwise-clean photo) that test has no
+  // relationship to "is this a digit or the background", and produces
+  // near-random per-pixel noise instead of real thresholding. Otsu's
+  // method finds the actual brightness split in *this* image's own
+  // histogram, so it works regardless of the display's real colors.
   const ctx = canvas.getContext("2d");
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const { data } = imageData;
+  const pixelCount = data.length / 4;
 
-  for (let i = 0; i < data.length; i += 4) {
-    const isBacklight = test(data[i], data[i + 1], data[i + 2]);
-    const value = isBacklight ? 255 : 0;
+  const histogram = new Array(256).fill(0);
+  const luminances = new Uint8ClampedArray(pixelCount);
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    const luminance = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+    luminances[p] = luminance;
+    histogram[luminance] += 1;
+  }
+
+  const threshold = computeOtsuThreshold(histogram, pixelCount);
+
+  let darkCount = 0;
+  for (let t = 0; t <= threshold; t++) {
+    darkCount += histogram[t];
+  }
+  // The digit strokes are always a small minority of a display's area, so
+  // whichever side of the threshold covers fewer pixels is the ink/segment
+  // color — regardless of whether that's the dark or the light side.
+  const darkIsForeground = darkCount < pixelCount - darkCount;
+
+  for (let p = 0, i = 0; p < pixelCount; p++, i += 4) {
+    const isDark = luminances[p] <= threshold;
+    const isForeground = darkIsForeground ? isDark : !isDark;
+    const value = isForeground ? 0 : 255;
     data[i] = value;
     data[i + 1] = value;
     data[i + 2] = value;
@@ -408,7 +475,7 @@ async function cropToDisplayRegion(dataUrl) {
   cropCanvas.height = cropH * GREEN_CROP_UPSCALE;
   const cropCtx = cropCanvas.getContext("2d");
   cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropCanvas.width, cropCanvas.height);
-  binarizeDisplayCanvas(cropCanvas, usedTier.test);
+  binarizeDisplayCanvas(cropCanvas);
 
   return { dataUrl: cropCanvas.toDataURL("image/png"), cropped: true, tier: usedTier.name };
 }

@@ -282,6 +282,22 @@ running again.
   also opens the exact cropped/binarized image that was handed to
   Tesseract, so screenshotting and sharing *that* — not just the app
   screen — shows precisely what the pipeline saw.
+- That debug image is what exposed a real bug: `binarizeDisplayCanvas`
+  used to decide black-vs-white for every pixel by reusing the *same*
+  "is this green" test used to locate the display — a shortcut that only
+  happens to work for a real green-backlit LCD. Fed a plain black-on-white
+  reference image (or any photo with enough compression noise to trip the
+  loose hue tier), that test has no relationship to "is this a digit or
+  the background", so it produced near-random per-pixel noise — a mostly
+  solid black image with scattered white flecks, not a clean binarized
+  one. Fixed by replacing it with proper Otsu-threshold binarization
+  (`computeOtsuThreshold` in `src/app.js`): it finds the actual brightness
+  split in *that* image's own luminance histogram, then maps whichever
+  side covers fewer pixels (the digit strokes are always the minority of
+  a display's area) to black and the rest to white — correct regardless
+  of the display's real colors. The green/hue tiers are still used to
+  *locate* the display region in a full photo; only the flawed black/white
+  decision afterward changed.
 - Meter photo boxes are a fixed, uniform size using `object-fit: cover`
   (see above), so the invoice's overall shape stays stable regardless of
   what photos you take — the exported PDF's page size still matches that
