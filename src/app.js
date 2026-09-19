@@ -417,6 +417,160 @@ function binarizeDisplayCanvas(canvas) {
   ctx.putImageData(imageData, 0, 0);
 }
 
+// Direct seven-segment decoding: classic OCR engines (both Tesseract's
+// default LSTM model and the community "letsgodigital" model trained
+// specifically for digital displays) were tested against real device
+// photos and real-world clean seven-segment renders and misread them
+// badly even on a perfectly binarized image — they're trained on natural
+// typefaces, not disconnected-segment glyphs. Since our own crop+binarize
+// step already produces a clean black-ink-on-white image, decoding the
+// seven segments directly (which segment shape has a digit lit) is both
+// more accurate and instant, with no model to load.
+const SEGMENT_PATTERNS = {
+  "1111110": "0",
+  "0110000": "1",
+  "1101101": "2",
+  "1111001": "3",
+  "0110011": "4",
+  "1011011": "5",
+  "1011111": "6",
+  "1110000": "7",
+  "1111111": "8",
+  "1111011": "9",
+};
+// Bit order for each pattern above: a (top), b (top-right), c (bottom-right),
+// d (bottom), e (bottom-left), f (top-left), g (middle).
+
+function segmentFraction(data, width, x0, y0, x1, y1) {
+  x0 = Math.max(0, Math.round(x0));
+  y0 = Math.max(0, Math.round(y0));
+  x1 = Math.min(width, Math.round(x1));
+  y1 = Math.round(y1);
+  let dark = 0;
+  let total = 0;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = (y * width + x) * 4;
+      total++;
+      if (data[i] < 128) dark++;
+    }
+  }
+  return total === 0 ? 0 : dark / total;
+}
+
+function classifySevenSegmentDigit(imageData, box) {
+  const { data, width } = imageData;
+  const { x0, y0, x1, y1 } = box;
+  const w = x1 - x0;
+  const h = y1 - y0;
+
+  // A narrow blob relative to its height is almost always "1" — its ink
+  // occupies only the right-side vertical segments, positioned wherever
+  // the digit was drawn rather than centered in a full digit-cell width.
+  if (w / h < 0.35) {
+    return "1";
+  }
+
+  const bandT = 0.16; // thickness of horizontal segment sample bands, as a fraction of h
+  const sideW = 0.32; // width of vertical segment sample bands, as a fraction of w
+  const threshold = 0.32;
+
+  const a = segmentFraction(data, width, x0 + w * 0.25, y0, x0 + w * 0.75, y0 + h * bandT);
+  const g = segmentFraction(
+    data,
+    width,
+    x0 + w * 0.25,
+    y0 + h * (0.5 - bandT / 2),
+    x0 + w * 0.75,
+    y0 + h * (0.5 + bandT / 2),
+  );
+  const d = segmentFraction(data, width, x0 + w * 0.25, y0 + h * (1 - bandT), x0 + w * 0.75, y1);
+  const f = segmentFraction(data, width, x0, y0 + h * 0.08, x0 + w * sideW, y0 + h * 0.47);
+  const b = segmentFraction(data, width, x0 + w * (1 - sideW), y0 + h * 0.08, x1, y0 + h * 0.47);
+  const e = segmentFraction(data, width, x0, y0 + h * 0.53, x0 + w * sideW, y0 + h * 0.92);
+  const c = segmentFraction(data, width, x0 + w * (1 - sideW), y0 + h * 0.53, x1, y0 + h * 0.92);
+
+  const bits = [a, b, c, d, e, f, g].map((value) => (value >= threshold ? "1" : "0")).join("");
+  return SEGMENT_PATTERNS[bits] ?? null;
+}
+
+function findSevenSegmentDigitBoxes(imageData, scanBox) {
+  const { data, width } = imageData;
+  const scanX0 = Math.max(0, Math.round(scanBox.x0));
+  const scanY0 = Math.max(0, Math.round(scanBox.y0));
+  const scanX1 = Math.min(width, Math.round(scanBox.x1));
+  const scanY1 = Math.min(imageData.height, Math.round(scanBox.y1));
+
+  let top = scanY1;
+  let bottom = scanY0;
+  for (let y = scanY0; y < scanY1; y++) {
+    for (let x = scanX0; x < scanX1; x++) {
+      if (data[(y * width + x) * 4] < 128) {
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+        break;
+      }
+    }
+  }
+  if (top >= bottom) {
+    return [];
+  }
+
+  const colHasInk = new Array(scanX1).fill(false);
+  for (let x = scanX0; x < scanX1; x++) {
+    for (let y = top; y <= bottom; y++) {
+      if (data[(y * width + x) * 4] < 128) {
+        colHasInk[x] = true;
+        break;
+      }
+    }
+  }
+
+  // A genuine gap between two digits is a fully ink-free column (neither
+  // neighboring digit's segments reach it); segments *within* one digit
+  // never produce a fully ink-free column even when visually disconnected
+  // (e.g. "4"'s top-left bar), because they still share columns with the
+  // middle bar. So a single ink-free column is enough to split on, with no
+  // gap-width tolerance needed — verified against tightly-kerned real
+  // display digits where the true gap was as narrow as the segments
+  // themselves.
+  const boxes = [];
+  let start = -1;
+  for (let x = scanX0; x <= scanX1; x++) {
+    const ink = x < scanX1 && colHasInk[x];
+    if (ink && start === -1) {
+      start = x;
+    } else if (!ink && start !== -1) {
+      if (x - start >= 3) {
+        boxes.push({ x0: start, x1: x, y0: top, y1: bottom + 1 });
+      }
+      start = -1;
+    }
+  }
+  return boxes;
+}
+
+function recognizeSevenSegmentReading(canvas, contentBox) {
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const scanBox = contentBox ?? { x0: 0, y0: 0, x1: canvas.width, y1: canvas.height };
+  const boxes = findSevenSegmentDigitBoxes(imageData, scanBox);
+
+  if (boxes.length < 2 || boxes.length > 6) {
+    return null;
+  }
+
+  let reading = "";
+  for (const box of boxes) {
+    const digit = classifySevenSegmentDigit(imageData, box);
+    if (digit === null) {
+      return null;
+    }
+    reading += digit;
+  }
+  return reading;
+}
+
 function loadImage(dataUrl) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -477,7 +631,30 @@ async function cropToDisplayRegion(dataUrl) {
   cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropCanvas.width, cropCanvas.height);
   binarizeDisplayCanvas(cropCanvas);
 
-  return { dataUrl: cropCanvas.toDataURL("image/png"), cropped: true, tier: usedTier.name };
+  // The padding added above (to avoid clipping digit strokes right at the
+  // detected edge) reaches outside the real display into whatever
+  // surrounds it in the photo — a meter's dark bezel, a table surface,
+  // etc. Binarizing the whole crop can turn that surrounding area into a
+  // solid dark border touching the image edges. That's harmless for a
+  // human glancing at the debug preview or for Tesseract, but it would
+  // make the segment decoder's edge-to-edge ink scan treat the border
+  // itself as a huge "digit". Pass along the padding-free content
+  // rectangle (in this canvas's own pixel coordinates) so the decoder can
+  // scan only inside the real display area.
+  const contentBox = {
+    x0: (minX - cropX) * GREEN_CROP_UPSCALE,
+    y0: (minY - cropY) * GREEN_CROP_UPSCALE,
+    x1: (minX - cropX + regionWidth) * GREEN_CROP_UPSCALE,
+    y1: (minY - cropY + regionHeight) * GREEN_CROP_UPSCALE,
+  };
+
+  return {
+    dataUrl: cropCanvas.toDataURL("image/png"),
+    cropped: true,
+    tier: usedTier.name,
+    canvas: cropCanvas,
+    contentBox,
+  };
 }
 
 async function runOcr(dataUrl, targetId) {
@@ -487,22 +664,33 @@ async function runOcr(dataUrl, targetId) {
   }
 
   try {
-    const { dataUrl: displayDataUrl, cropped, tier } = await cropToDisplayRegion(dataUrl);
-    const worker = await getOcrWorker();
-    await worker.setParameters({
-      // SINGLE_LINE requires strict horizontal alignment and returns
-      // nothing at all if a real photo's slight tilt or binarization
-      // noise doesn't match that assumption exactly (confirmed: a real
-      // device report showed crop succeeding but recognize() returning
-      // empty text). SINGLE_BLOCK tolerates that while still being
-      // targeted at "one coherent region", instead of scanning the
-      // whole page like SPARSE_TEXT.
-      tessedit_pageseg_mode: cropped ? PSM.SINGLE_BLOCK : PSM.SPARSE_TEXT,
-    });
-    const {
-      data: { text },
-    } = await withTimeout(worker.recognize(displayDataUrl), OCR_TIMEOUT_MS, "Timed out reading the photo");
-    const reading = extractReadingFromText(text);
+    const { dataUrl: displayDataUrl, cropped, tier, canvas: cropCanvas, contentBox } = await cropToDisplayRegion(dataUrl);
+
+    // Try the deterministic seven-segment decoder first: it's instant (no
+    // model to load) and, unlike Tesseract, was built for exactly this
+    // glyph shape. Only fall back to Tesseract if it can't produce a
+    // confident full reading (e.g. a non-seven-segment display, or a crop
+    // that clipped a digit).
+    const segmentReading = cropCanvas ? recognizeSevenSegmentReading(cropCanvas, contentBox) : null;
+
+    let reading = segmentReading;
+    let text = "";
+    if (reading === null) {
+      const worker = await getOcrWorker();
+      await worker.setParameters({
+        // SINGLE_LINE requires strict horizontal alignment and returns
+        // nothing at all if a real photo's slight tilt or binarization
+        // noise doesn't match that assumption exactly (confirmed: a real
+        // device report showed crop succeeding but recognize() returning
+        // empty text). SINGLE_BLOCK tolerates that while still being
+        // targeted at "one coherent region", instead of scanning the
+        // whole page like SPARSE_TEXT.
+        tessedit_pageseg_mode: cropped ? PSM.SINGLE_BLOCK : PSM.SPARSE_TEXT,
+      });
+      const recognized = await withTimeout(worker.recognize(displayDataUrl), OCR_TIMEOUT_MS, "Timed out reading the photo");
+      text = recognized.data.text;
+      reading = extractReadingFromText(text);
+    }
 
     if (reading !== null) {
       const input = document.getElementById(targetId);

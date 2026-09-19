@@ -298,6 +298,33 @@ running again.
   of the display's real colors. The green/hue tiers are still used to
   *locate* the display region in a full photo; only the flawed black/white
   decision afterward changed.
+- Even with clean Otsu binarization, Tesseract itself turned out to badly
+  misread seven-segment digits — confirmed by feeding it the exact clean
+  "000162" image from a real device's debug view: the default `eng` LSTM
+  model read it as `"13"` (confidence 0), and swapping in the
+  community-trained `letsgodigital` model (built specifically for digital
+  displays) did no better, across every page-segmentation mode tried. Both
+  are trained on natural typefaces, not disconnected-segment glyphs, so no
+  amount of image cleanup fixes it. Replaced OCR as the primary path with
+  a deterministic seven-segment decoder (`classifySevenSegmentDigit`,
+  `findSevenSegmentDigitBoxes`, `recognizeSevenSegmentReading` in
+  `src/app.js`): it splits the binarized crop into per-digit boxes at any
+  fully ink-free column, samples the seven classic segment regions (a–g)
+  of each box for ink density, and maps the on/off pattern straight to a
+  digit via lookup table — no model, no training data, and it runs
+  instantly. Verified against all ten synthetic reference digits and the
+  real "000162" crop (both exact) and, end-to-end through the real capture
+  flow, a realistic full-photo test (dark bezel + green LCD + real
+  seven-segment glyphs) — which also caught a second bug: the crop
+  padding around the detected display reaches into the surrounding photo
+  (bezel, table, etc.), and binarizing that whole area can turn it into a
+  solid dark border touching the image edges, which the decoder's
+  edge-to-edge ink scan would otherwise mistake for one giant digit. Fixed
+  by having `cropToDisplayRegion` also return the padding-free
+  `contentBox` (the real display rectangle, in the crop canvas's own
+  coordinates) so the decoder only scans inside it. Tesseract is kept as a
+  fallback for the rare case the decoder can't produce a confident
+  full reading (non-seven-segment display, or a crop that clipped a digit).
 - Meter photo boxes are a fixed, uniform size using `object-fit: cover`
   (see above), so the invoice's overall shape stays stable regardless of
   what photos you take — the exported PDF's page size still matches that
