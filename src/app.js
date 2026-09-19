@@ -1098,6 +1098,9 @@ async function runOcr(dataUrl, targetId) {
     }
 
     if (reading !== null) {
+      // A meter always shows the reading padded to a fixed digit count
+      // ("000162"), but the field should hold the actual number.
+      reading = reading.replace(/^0+(?=\d)/, "");
       const input = document.getElementById(targetId);
       input.value = reading;
       renderInvoice();

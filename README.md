@@ -400,6 +400,9 @@ running again.
   (previously "13" and nothing detected — now "000162" and "000040", both
   correct) and the full existing regression set (all ten digits, the
   bezel-border and real-digit-crop cases, and the no-display fallback).
+- The detected reading strips its own leading zeros (`000162` → `162`)
+  before landing in the field — a meter always pads its display to a fixed
+  digit count, but that's not the number you'd type in by hand.
 - Meter photo boxes are a fixed, uniform size using `object-fit: cover`
   (see above), so the invoice's overall shape stays stable regardless of
   what photos you take — the exported PDF's page size still matches that
