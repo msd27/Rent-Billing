@@ -325,6 +325,29 @@ running again.
   coordinates) so the decoder only scans inside it. Tesseract is kept as a
   fallback for the rare case the decoder can't produce a confident
   full reading (non-seven-segment display, or a crop that clipped a digit).
+- That decoder's column-based digit splitting broke on a real meter photo:
+  a real utility meter's LCD commonly packs more into the same green-detected
+  area than just the main reading — here a smaller decimal-fraction
+  sub-display ("43") and a "kWh" unit label sat right next to "000162" —
+  and a column-based split has no way to tell those apart from real digits,
+  so it silently produced a wrong short reading instead of failing loudly.
+  Replaced the column split with proper connected-component labeling
+  (`findInkComponents`): each visually separate glyph gets its own tight
+  bounding box regardless of where it sits, so the decoder can then filter
+  down to `selectMainDigitComponents` — just the components close to the
+  tallest height and vertically aligned with each other, since the main
+  reading's digits are always the biggest, most prominent thing on a real
+  display. Some seven-segment fonts also render each segment with a small
+  mitered gap at the corners, splitting a single digit into several
+  disconnected components (confirmed on the real photo: a "0" came back as
+  a separate top bar, bottom bar, and two verticals) — `mergeInkFragments`
+  reunites those first, via Union-Find on bounding-box proximity (a
+  fraction of display height, so it scales with photo resolution) rather
+  than requiring pixels to actually touch. Verified against the real
+  photo (now correctly reads "000162" instead of the wrong short reading
+  it silently produced before), all ten digits and a narrow-digit-adjacent
+  case through synthetic full-photo tests, and the earlier real-digit-crop
+  and bezel-border regression cases (still correct).
 - Meter photo boxes are a fixed, uniform size using `object-fit: cover`
   (see above), so the invoice's overall shape stays stable regardless of
   what photos you take — the exported PDF's page size still matches that

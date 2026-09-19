@@ -494,67 +494,167 @@ function classifySevenSegmentDigit(imageData, box) {
   return SEGMENT_PATTERNS[bits] ?? null;
 }
 
-function findSevenSegmentDigitBoxes(imageData, scanBox) {
-  const { data, width } = imageData;
-  const scanX0 = Math.max(0, Math.round(scanBox.x0));
-  const scanY0 = Math.max(0, Math.round(scanBox.y0));
-  const scanX1 = Math.min(width, Math.round(scanBox.x1));
-  const scanY1 = Math.min(imageData.height, Math.round(scanBox.y1));
+const INK_COMPONENT_MIN_PIXELS = 12;
 
-  let top = scanY1;
-  let bottom = scanY0;
-  for (let y = scanY0; y < scanY1; y++) {
-    for (let x = scanX0; x < scanX1; x++) {
-      if (data[(y * width + x) * 4] < 128) {
-        if (y < top) top = y;
-        if (y > bottom) bottom = y;
-        break;
-      }
-    }
-  }
-  if (top >= bottom) {
+// A real meter display's LCD area usually holds more than just the main
+// reading — a decimal-fraction sub-display, a "kWh" unit label, a small
+// icon — all in the same green-detected region. A column-based split (any
+// fully ink-free column starts a new digit) has no way to tell those
+// apart from the real digits, and confidently produced a wrong reading
+// from whichever few of them happened to land in range. Connected-component
+// labeling gives each visually separate glyph its own tight bounding box
+// regardless of where it sits, so the ones that are much shorter than the
+// main reading's digits (the decimal sub-display, unit text) can be
+// filtered out by height below, instead of silently corrupting the result.
+function findInkComponents(imageData, scanBox) {
+  const { data, width, height } = imageData;
+  const x0 = Math.max(0, Math.round(scanBox.x0));
+  const y0 = Math.max(0, Math.round(scanBox.y0));
+  const x1 = Math.min(width, Math.round(scanBox.x1));
+  const y1 = Math.min(height, Math.round(scanBox.y1));
+  const boxW = x1 - x0;
+  const boxH = y1 - y0;
+  if (boxW <= 0 || boxH <= 0) {
     return [];
   }
 
-  const colHasInk = new Array(scanX1).fill(false);
-  for (let x = scanX0; x < scanX1; x++) {
-    for (let y = top; y <= bottom; y++) {
-      if (data[(y * width + x) * 4] < 128) {
-        colHasInk[x] = true;
-        break;
+  const visited = new Uint8Array(boxW * boxH);
+  const stackX = new Int32Array(boxW * boxH);
+  const stackY = new Int32Array(boxW * boxH);
+  const isInk = (x, y) => data[(y * width + x) * 4] < 128;
+
+  const components = [];
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const localIndex = (y - y0) * boxW + (x - x0);
+      if (visited[localIndex] || !isInk(x, y)) {
+        continue;
+      }
+
+      let top = y;
+      let bottom = y;
+      let left = x;
+      let right = x;
+      let count = 0;
+      let stackSize = 0;
+      stackX[stackSize] = x;
+      stackY[stackSize] = y;
+      stackSize++;
+      visited[localIndex] = 1;
+
+      while (stackSize > 0) {
+        stackSize--;
+        const cx = stackX[stackSize];
+        const cy = stackY[stackSize];
+        count++;
+        if (cx < left) left = cx;
+        if (cx > right) right = cx;
+        if (cy < top) top = cy;
+        if (cy > bottom) bottom = cy;
+
+        const neighbors = [
+          [cx + 1, cy],
+          [cx - 1, cy],
+          [cx, cy + 1],
+          [cx, cy - 1],
+        ];
+        for (const [nx, ny] of neighbors) {
+          if (nx < x0 || nx >= x1 || ny < y0 || ny >= y1) continue;
+          const neighborIndex = (ny - y0) * boxW + (nx - x0);
+          if (visited[neighborIndex] || !isInk(nx, ny)) continue;
+          visited[neighborIndex] = 1;
+          stackX[stackSize] = nx;
+          stackY[stackSize] = ny;
+          stackSize++;
+        }
+      }
+
+      if (count >= INK_COMPONENT_MIN_PIXELS) {
+        components.push({ x0: left, y0: top, x1: right + 1, y1: bottom + 1 });
+      }
+    }
+  }
+  return components;
+}
+
+// Some seven-segment fonts render each segment with a small mitered gap at
+// the corners where it visually meets its neighbors, so a single digit can
+// come back as several disconnected ink components (e.g. a top bar
+// separate from the verticals below it). Union-Find components whose
+// bounding boxes are within a small margin of overlapping — bounding-box
+// proximity rather than requiring actually-touching pixels, since that's
+// exactly what a mitered corner defeats. The margin is a fraction of the
+// display's height so it scales with photo resolution/zoom, tuned to sit
+// above real segment-corner gaps and below the gap between two digits.
+function mergeInkFragments(components, mergeRadius) {
+  const n = components.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  function find(i) {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  }
+  function union(i, j) {
+    const ri = find(i);
+    const rj = find(j);
+    if (ri !== rj) parent[ri] = rj;
+  }
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const a = components[i];
+      const b = components[j];
+      const hGap = Math.max(0, Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1));
+      const vGap = Math.max(0, Math.max(a.y0, b.y0) - Math.min(a.y1, b.y1));
+      if (hGap <= mergeRadius && vGap <= mergeRadius) {
+        union(i, j);
       }
     }
   }
 
-  // A genuine gap between two digits is a fully ink-free column (neither
-  // neighboring digit's segments reach it); segments *within* one digit
-  // never produce a fully ink-free column even when visually disconnected
-  // (e.g. "4"'s top-left bar), because they still share columns with the
-  // middle bar. So a single ink-free column is enough to split on, with no
-  // gap-width tolerance needed — verified against tightly-kerned real
-  // display digits where the true gap was as narrow as the segments
-  // themselves.
-  const boxes = [];
-  let start = -1;
-  for (let x = scanX0; x <= scanX1; x++) {
-    const ink = x < scanX1 && colHasInk[x];
-    if (ink && start === -1) {
-      start = x;
-    } else if (!ink && start !== -1) {
-      if (x - start >= 3) {
-        boxes.push({ x0: start, x1: x, y0: top, y1: bottom + 1 });
-      }
-      start = -1;
-    }
+  const groups = new Map();
+  for (let i = 0; i < n; i++) {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(components[i]);
   }
-  return boxes;
+
+  return Array.from(groups.values()).map((members) => ({
+    x0: Math.min(...members.map((m) => m.x0)),
+    y0: Math.min(...members.map((m) => m.y0)),
+    x1: Math.max(...members.map((m) => m.x1)),
+    y1: Math.max(...members.map((m) => m.y1)),
+  }));
+}
+
+// The main reading's digits are the tallest glyphs in the display (taller
+// than a decimal sub-reading or unit text), and share roughly the same
+// vertical position — used to isolate just them from whatever else shares
+// the display.
+function selectMainDigitComponents(components) {
+  if (components.length === 0) {
+    return [];
+  }
+  const maxHeight = Math.max(...components.map((c) => c.y1 - c.y0));
+  const tall = components.filter((c) => c.y1 - c.y0 >= maxHeight * 0.65);
+  const centers = tall.map((c) => (c.y0 + c.y1) / 2).sort((a, b) => a - b);
+  const medianCenter = centers[Math.floor(centers.length / 2)];
+  const aligned = tall.filter((c) => Math.abs((c.y0 + c.y1) / 2 - medianCenter) <= maxHeight * 0.35);
+  aligned.sort((a, b) => a.x0 - b.x0);
+  return aligned;
 }
 
 function recognizeSevenSegmentReading(canvas, contentBox) {
   const ctx = canvas.getContext("2d");
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const scanBox = contentBox ?? { x0: 0, y0: 0, x1: canvas.width, y1: canvas.height };
-  const boxes = findSevenSegmentDigitBoxes(imageData, scanBox);
+
+  const rawComponents = findInkComponents(imageData, scanBox);
+  const mergeRadius = Math.max(2, (scanBox.y1 - scanBox.y0) * 0.05);
+  const merged = mergeInkFragments(rawComponents, mergeRadius);
+  const boxes = selectMainDigitComponents(merged);
 
   if (boxes.length < 2 || boxes.length > 6) {
     return null;
