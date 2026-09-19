@@ -65,13 +65,19 @@ GOALPARA, ASSAM-783124</textarea>
         </label>
 
         <div class="control-grid">
-          <label>
-            Current reading
+          <label class="full-width-field">
+            <span class="field-label-row">
+              Current reading
+              <button id="currentImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
+            </span>
             <input id="currentReading" type="number" value="190" placeholder="Current reading" />
             <span id="currentReadingOcrStatus" class="ocr-status" role="status"></span>
           </label>
-          <label>
-            Previous reading
+          <label class="full-width-field">
+            <span class="field-label-row">
+              Previous reading
+              <button id="previousImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
+            </span>
             <input id="previousReading" type="number" value="142" placeholder="Previous reading" />
             <span id="previousReadingOcrStatus" class="ocr-status" role="status"></span>
           </label>
@@ -115,14 +121,6 @@ GOALPARA, ASSAM-783124</textarea>
         </div>
 
         <div class="uploads">
-          <div class="upload-row">
-            <span class="upload-label">Current meter image</span>
-            <button id="currentImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
-          </div>
-          <div class="upload-row">
-            <span class="upload-label">Previous meter image</span>
-            <button id="previousImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
-          </div>
           <div class="upload-row">
             <span class="upload-label">Payment QR image</span>
             <button id="qrImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>

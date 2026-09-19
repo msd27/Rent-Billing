@@ -172,6 +172,14 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Current/previous reading now carry an "Add photo" button alongside their
+   label — cramped into half the grid's width, that button forced the label
+   text onto two lines. Spanning the full row gives both room to sit on one
+   line. */
+.full-width-field {
+  grid-column: 1 / -1;
+}
+
 .uploads {
   grid-template-columns: 1fr;
 }
@@ -202,6 +210,16 @@ textarea {
 }
 
 .upload-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Keeps the "Add photo" button that fills a reading field right next to
+   that field's own name, instead of in the unrelated uploads list further
+   down the form where it's easy to miss the connection between the two. */
+.field-label-row {
   align-items: center;
   display: flex;
   justify-content: space-between;
