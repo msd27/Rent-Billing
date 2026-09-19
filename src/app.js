@@ -506,8 +506,8 @@ const INK_COMPONENT_MIN_PIXELS = 12;
 // regardless of where it sits, so the ones that are much shorter than the
 // main reading's digits (the decimal sub-display, unit text) can be
 // filtered out by height below, instead of silently corrupting the result.
-function findInkComponents(imageData, scanBox) {
-  const { data, width, height } = imageData;
+function findInkComponents(imageData, scanBox, isInk) {
+  const { width, height } = imageData;
   const x0 = Math.max(0, Math.round(scanBox.x0));
   const y0 = Math.max(0, Math.round(scanBox.y0));
   const x1 = Math.min(width, Math.round(scanBox.x1));
@@ -521,7 +521,6 @@ function findInkComponents(imageData, scanBox) {
   const visited = new Uint8Array(boxW * boxH);
   const stackX = new Int32Array(boxW * boxH);
   const stackY = new Int32Array(boxW * boxH);
-  const isInk = (x, y) => data[(y * width + x) * 4] < 128;
 
   const components = [];
   for (let y = y0; y < y1; y++) {
@@ -570,7 +569,7 @@ function findInkComponents(imageData, scanBox) {
       }
 
       if (count >= INK_COMPONENT_MIN_PIXELS) {
-        components.push({ x0: left, y0: top, x1: right + 1, y1: bottom + 1 });
+        components.push({ x0: left, y0: top, x1: right + 1, y1: bottom + 1, count });
       }
     }
   }
@@ -646,12 +645,145 @@ function selectMainDigitComponents(components) {
   return aligned;
 }
 
+// contentBox is meant to already exclude the display's own dark bezel, but
+// that boundary was measured on the original, unbinarized photo, where a
+// real bezel's inner edge blurs into the glass over several pixels rather
+// than stopping cleanly — so a hair's-width sliver of it can still land
+// just inside. Undetected, that sliver forms a loop touching every digit
+// at once, merging them all into one shape. Peel off only a genuine
+// full-span line hugging an edge (checked directly, not assumed) rather
+// than a blanket inward margin, which would just as easily slice into a
+// real digit that happens to sit close to that same edge.
+function peelBorderFrame(box, isInk) {
+  let { x0, y0, x1, y1 } = box;
+  const maxPeelX = (x1 - x0) * 0.15;
+  const maxPeelY = (y1 - y0) * 0.15;
+
+  const rowDarkFraction = (y) => {
+    let dark = 0;
+    let total = 0;
+    for (let x = Math.round(x0); x < Math.round(x1); x++) {
+      total++;
+      if (isInk(x, y)) dark++;
+    }
+    return total === 0 ? 0 : dark / total;
+  };
+  const colDarkFraction = (x) => {
+    let dark = 0;
+    let total = 0;
+    for (let y = Math.round(y0); y < Math.round(y1); y++) {
+      total++;
+      if (isInk(x, y)) dark++;
+    }
+    return total === 0 ? 0 : dark / total;
+  };
+
+  let peeled = 0;
+  while (peeled < maxPeelY && y0 < y1 - 1 && rowDarkFraction(Math.round(y0)) > 0.5) {
+    y0++;
+    peeled++;
+  }
+  peeled = 0;
+  while (peeled < maxPeelY && y1 > y0 + 1 && rowDarkFraction(Math.round(y1) - 1) > 0.5) {
+    y1--;
+    peeled++;
+  }
+  peeled = 0;
+  while (peeled < maxPeelX && x0 < x1 - 1 && colDarkFraction(Math.round(x0)) > 0.5) {
+    x0++;
+    peeled++;
+  }
+  peeled = 0;
+  while (peeled < maxPeelX && x1 > x0 + 1 && colDarkFraction(Math.round(x1) - 1) > 0.5) {
+    x1--;
+    peeled++;
+  }
+
+  return { x0, y0, x1, y1 };
+}
+
+// A frame that runs at a slight angle (a photo rarely captures the meter
+// perfectly square-on) can leak past peelBorderFrame entirely — no single
+// row or column crosses its 50% threshold, but the tilted line still
+// connects across the box as a 2D path, pixel-adjacency by pixel-adjacency,
+// bridging every digit into one shape at the raw component stage, before
+// any of the merge logic below even runs. Real digit strokes are always
+// much thicker than a photographed frame line, though, so shrinking every
+// ink region inward by a couple of pixels (erosion) severs a thin bridge
+// like that while leaving the digit strokes still solidly connected to
+// themselves. An integral image makes each pixel's box-sum check O(1)
+// instead of O(radius²), so this stays cheap over a multi-megapixel crop.
+function buildIntegralImage(imageData, box, isInk) {
+  const x0 = Math.round(box.x0);
+  const y0 = Math.round(box.y0);
+  const x1 = Math.round(box.x1);
+  const y1 = Math.round(box.y1);
+  const w = x1 - x0;
+  const h = y1 - y0;
+  const integral = new Int32Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let rowSum = 0;
+    const rowOut = (y + 1) * (w + 1);
+    const rowPrevOut = y * (w + 1);
+    for (let x = 0; x < w; x++) {
+      rowSum += isInk(x0 + x, y0 + y) ? 1 : 0;
+      integral[rowOut + x + 1] = integral[rowPrevOut + x + 1] + rowSum;
+    }
+  }
+  return { integral, w, h, x0, y0 };
+}
+
+function makeErodedInk(imageData, box, isInk, radius) {
+  const img = buildIntegralImage(imageData, box, isInk);
+  return (x, y) => {
+    const lx = Math.max(0, x - img.x0 - radius);
+    const ly = Math.max(0, y - img.y0 - radius);
+    const hx = Math.min(img.w, x - img.x0 + radius + 1);
+    const hy = Math.min(img.h, y - img.y0 + radius + 1);
+    if (hx <= lx || hy <= ly) return false;
+    const sum =
+      img.integral[hy * (img.w + 1) + hx] -
+      img.integral[ly * (img.w + 1) + hx] -
+      img.integral[hy * (img.w + 1) + lx] +
+      img.integral[ly * (img.w + 1) + lx];
+    return sum === (hx - lx) * (hy - ly);
+  };
+}
+
+const EROSION_RADIUS = 2;
+
 function recognizeSevenSegmentReading(canvas, contentBox) {
   const ctx = canvas.getContext("2d");
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const scanBox = contentBox ?? { x0: 0, y0: 0, x1: canvas.width, y1: canvas.height };
+  const rawBox = contentBox ?? { x0: 0, y0: 0, x1: canvas.width, y1: canvas.height };
 
-  const rawComponents = findInkComponents(imageData, scanBox);
+  const isBinarizedInk = (x, y) => imageData.data[(y * imageData.width + x) * 4] < 128;
+  const scanBox = peelBorderFrame(rawBox, isBinarizedInk);
+  const erodedInk = makeErodedInk(imageData, scanBox, isBinarizedInk, EROSION_RADIUS);
+  const erodedComponents = findInkComponents(imageData, scanBox, erodedInk);
+  // A sparse, spread-out shape — e.g. a corner bracket or an L formed by a
+  // side bar meeting a top trim strip, still present after erosion because
+  // each stroke on its own is thick enough to survive — has a bounding box
+  // far bigger than the ink actually inside it. mergeInkFragments below
+  // works off bounding-box distance, so a box that size would read as
+  // "close to" every digit in the display and merge them all into one.
+  // Real digit strokes (or fragments of one) always fill a solid fraction
+  // of their own bounding box; this is cheap insurance against a shape
+  // that clearly isn't one.
+  const MIN_FILL_RATIO = 0.12;
+  const compact = erodedComponents.filter((c) => {
+    const area = (c.x1 - c.x0) * (c.y1 - c.y0);
+    return area > 0 && c.count / area >= MIN_FILL_RATIO;
+  });
+  // Erosion shrinks every shape inward by the radius, so grow each
+  // surviving component back out by the same amount to recover the
+  // digit's real extent before sampling its segments.
+  const rawComponents = compact.map((c) => ({
+    x0: Math.max(scanBox.x0, c.x0 - EROSION_RADIUS),
+    y0: Math.max(scanBox.y0, c.y0 - EROSION_RADIUS),
+    x1: Math.min(scanBox.x1, c.x1 + EROSION_RADIUS),
+    y1: Math.min(scanBox.y1, c.y1 + EROSION_RADIUS),
+  }));
   const mergeRadius = Math.max(2, (scanBox.y1 - scanBox.y0) * 0.05);
   const merged = mergeInkFragments(rawComponents, mergeRadius);
   const boxes = selectMainDigitComponents(merged);
@@ -669,6 +801,164 @@ function recognizeSevenSegmentReading(canvas, contentBox) {
     reading += digit;
   }
   return reading;
+}
+
+// How tightly the display's own background color clusters, sampled from
+// the non-ink pixels inside a bezel candidate. A real LCD's background is
+// close to one flat color (whatever its backlight — green, blue, or an
+// unlit monochrome gray/white); a false match like a printed logo banner
+// mixes several distinct colors, so its pixels scatter far more widely in
+// RGB space. Empirically real bezels landed under ~30, false matches over
+// ~50 on real device photos — the cutoff below sits with margin on both
+// sides.
+function colorUniformity(data, width, box, isDark) {
+  const { x0, y0, x1, y1 } = box;
+  let sumR = 0;
+  let sumG = 0;
+  let sumB = 0;
+  let n = 0;
+  const samples = [];
+  for (let y = y0; y < y1; y += 3) {
+    for (let x = x0; x < x1; x += 3) {
+      if (isDark(x, y)) continue;
+      const i = (y * width + x) * 4;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      samples.push([r, g, b]);
+      sumR += r;
+      sumG += g;
+      sumB += b;
+      n++;
+    }
+  }
+  if (n < 10) {
+    return 999;
+  }
+  const meanR = sumR / n;
+  const meanG = sumG / n;
+  const meanB = sumB / n;
+  let variance = 0;
+  for (const [r, g, b] of samples) {
+    variance += (r - meanR) ** 2 + (g - meanG) ** 2 + (b - meanB) ** 2;
+  }
+  return Math.sqrt(variance / n);
+}
+
+// Tuned against two real device photos: a genuine display's std dev came
+// in around 9-42 (glare and shadow gradients on the glass push it up), a
+// false match (a busy printed logo/text banner that happened to form a
+// hollow-looking connected blob) came in around 50 — this sits with
+// margin between the two.
+const BEZEL_MAX_COLOR_STD_DEV = 46;
+
+// Locating the display by its dark rectangular bezel, instead of by the
+// backlight's color, is what makes this work for a monochrome display and
+// for a green/blue one alike — and it also avoids a real failure mode the
+// color tiers below have: a real meter's plastic body can itself carry
+// enough of a color cast under ordinary indoor lighting to satisfy a
+// "green enough" test across nearly the whole photo, not just the display.
+// Almost every digital meter has a distinctly dark frame around the LCD
+// glass, so it's found here as a dark, hollow (frame-shaped), moderately
+// large, roughly-rectangular connected component with a uniformly colored
+// interior.
+function findDisplayBezelBox(imageData) {
+  const { data, width, height } = imageData;
+  const totalPixels = width * height;
+  const luminance = new Uint8ClampedArray(totalPixels);
+  const histogram = new Array(256).fill(0);
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    const l = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+    luminance[p] = l;
+    histogram[l] += 1;
+  }
+  const threshold = computeOtsuThreshold(histogram, totalPixels);
+  const isDark = (x, y) => luminance[y * width + x] <= threshold;
+  // A real photo's frame-to-glass edge is a gradient over several pixels
+  // (blur, JPEG compression), not a clean binary step, so pixels right at
+  // that edge sit ambiguously close to the threshold. Used only when
+  // measuring the glass's own extent below — requiring real margin above
+  // the threshold keeps those transition pixels from being counted as
+  // "light" and letting a sliver of the frame leak into the display box.
+  const isConfidentlyLight = (x, y) => luminance[y * width + x] > threshold + 20;
+
+  const components = findInkComponents(imageData, { x0: 0, y0: 0, x1: width, y1: height }, isDark);
+
+  const imageArea = width * height;
+  let best = null;
+  for (const c of components) {
+    const w = c.x1 - c.x0;
+    const h = c.y1 - c.y0;
+    const areaFraction = (w * h) / imageArea;
+    const aspect = w / h;
+    if (areaFraction < 0.01 || areaFraction > 0.45) continue;
+    if (aspect < 1.2 || aspect > 7) continue;
+
+    // Hollow check: the inner ~50% of the bbox should be mostly NOT part
+    // of this dark component — confirms a frame around a lighter
+    // interior, not a solid dark block like printed text/logo.
+    const ix0 = c.x0 + w * 0.25;
+    const ix1 = c.x0 + w * 0.75;
+    const iy0 = c.y0 + h * 0.25;
+    const iy1 = c.y0 + h * 0.75;
+    let innerDark = 0;
+    let innerTotal = 0;
+    for (let y = Math.round(iy0); y < Math.round(iy1); y += 2) {
+      for (let x = Math.round(ix0); x < Math.round(ix1); x += 2) {
+        innerTotal++;
+        if (isDark(x, y)) innerDark++;
+      }
+    }
+    if (innerTotal === 0 || innerDark / innerTotal > 0.35) continue;
+
+    const colorStdDev = colorUniformity(data, width, { x0: ix0, y0: iy0, x1: ix1, y1: iy1 }, isDark);
+    if (colorStdDev > BEZEL_MAX_COLOR_STD_DEV) continue;
+
+    if (!best || colorStdDev < best.colorStdDev) {
+      // The component's own bbox is the frame's OUTER edge, which still
+      // includes the frame itself — not what downstream cropping expects
+      // (the green/hue tiers hand back the bbox of the display's own
+      // light pixels, which naturally excludes their dark bezel too).
+      // Re-scan for the tight bounding box of the light pixels strictly
+      // inside the frame, so both paths hand back the same kind of box —
+      // the display's glass, not its frame.
+      let lightMinX = c.x1;
+      let lightMinY = c.y1;
+      let lightMaxX = c.x0;
+      let lightMaxY = c.y0;
+      for (let y = c.y0; y < c.y1; y++) {
+        for (let x = c.x0; x < c.x1; x++) {
+          if (!isConfidentlyLight(x, y)) continue;
+          if (x < lightMinX) lightMinX = x;
+          if (x > lightMaxX) lightMaxX = x;
+          if (y < lightMinY) lightMinY = y;
+          if (y > lightMaxY) lightMaxY = y;
+        }
+      }
+      if (lightMinX >= lightMaxX || lightMinY >= lightMaxY) continue;
+      // A small extra inward margin, on top of the confidence margin
+      // above, as a second line of defense against any remaining sliver
+      // of the frame — cheap insurance since the padding added during
+      // cropping (below) already compensates for a slightly tight box.
+      const erodeX = Math.max(2, (lightMaxX - lightMinX) * 0.03);
+      const erodeY = Math.max(2, (lightMaxY - lightMinY) * 0.03);
+      const finalMinX = lightMinX + erodeX;
+      const finalMinY = lightMinY + erodeY;
+      const finalMaxX = lightMaxX + 1 - erodeX;
+      const finalMaxY = lightMaxY + 1 - erodeY;
+      if (finalMinX >= finalMaxX || finalMinY >= finalMaxY) continue;
+      best = {
+        minX: finalMinX,
+        minY: finalMinY,
+        maxX: finalMaxX,
+        maxY: finalMaxY,
+        regionWidth: finalMaxX - finalMinX,
+        regionHeight: finalMaxY - finalMinY,
+        colorStdDev,
+      };
+    }
+  }
+  return best;
 }
 
 function loadImage(dataUrl) {
@@ -702,13 +992,28 @@ async function cropToDisplayRegion(dataUrl) {
   }
 
   const { width, height } = imageData;
+  const imageArea = width * height;
   let region = null;
-  let usedTier = GREEN_DETECTOR_TIERS[0];
-  for (const tier of GREEN_DETECTOR_TIERS) {
-    region = findGreenBoundingBox(imageData, tier.test);
-    if (region) {
-      usedTier = tier;
-      break;
+  let usedTierName = null;
+
+  // Try locating the display by its bezel first (works for any backlight
+  // color, or none) — only fall back to the color/hue tiers, which need a
+  // saturated colored backlight and can be fooled by a meter body with its
+  // own slight color cast, when no confident bezel is found.
+  region = findDisplayBezelBox(imageData);
+  if (region) {
+    usedTierName = "bezel";
+  } else {
+    for (const tier of GREEN_DETECTOR_TIERS) {
+      const candidate = findGreenBoundingBox(imageData, tier.test);
+      // A real display is always a small part of a full meter photo — a
+      // match covering most of the frame means the tier's color test
+      // matched the meter body itself, not just the display.
+      if (candidate && (candidate.regionWidth * candidate.regionHeight) / imageArea <= 0.45) {
+        region = candidate;
+        usedTierName = tier.name;
+        break;
+      }
     }
   }
 
@@ -751,7 +1056,7 @@ async function cropToDisplayRegion(dataUrl) {
   return {
     dataUrl: cropCanvas.toDataURL("image/png"),
     cropped: true,
-    tier: usedTier.name,
+    tier: usedTierName,
     canvas: cropCanvas,
     contentBox,
   };

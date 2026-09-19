@@ -348,6 +348,58 @@ running again.
   it silently produced before), all ten digits and a narrow-digit-adjacent
   case through synthetic full-photo tests, and the earlier real-digit-crop
   and bezel-border regression cases (still correct).
+- Display *location* turned out to be the next real-world failure point,
+  reported against two actual device photos (not screenshots): on one, the
+  current-reading field detected nothing at all; the debug crop showed why
+  — `findGreenBoundingBox` had matched almost the *entire* meter face, not
+  just the display, because the meter's pale plastic body carried enough of
+  a green cast under ordinary indoor lighting to pass the color test across
+  nearly the whole photo. Color/hue detection also can't work at all for a
+  monochrome (unlit/no backlight) display, which the user asked this to
+  support. Added `findDisplayBezelBox` as the primary way to locate the
+  display, tried before the color tiers: almost every digital meter has a
+  distinctly dark rectangular bezel framing the LCD glass regardless of
+  backlight color, found as a dark, hollow (frame-shaped), moderately-large
+  connected component (reusing `findInkComponents`, generalized to take any
+  ink predicate instead of always testing binarized black). A first version
+  ranked candidates by size alone and picked the meter's "BENLO" logo
+  banner (its scattered letters happened to bridge into one hollow-looking
+  blob) over the real bezel; fixed by ranking on how uniformly colored the
+  candidate's interior is instead (`colorUniformity`) — a real LCD's
+  background is close to one flat color, a printed logo/text banner mixes
+  several, and the two separated cleanly on both real photos (~9-42 vs
+  ~50). The color tiers are kept as a fallback for a display with no clear
+  dark bezel, now with a sanity check (reject a match covering more than
+  45% of the photo) so the original bug can't recur through that path
+  either.
+- Getting the bezel's outer frame into a clean inner display box (and then
+  into a `contentBox` the digit decoder can trust) took three more rounds
+  against the real photos: (1) the frame's own bounding box still included
+  the frame itself, not just the glass — fixed by re-scanning for the tight
+  bounding box of the confidently-light pixels strictly inside it, with a
+  small erosion margin, since a real photo's frame-to-glass edge blurs over
+  several pixels rather than stopping cleanly; (2) even so, a hairline
+  sliver of the frame still occasionally reached the decoder's scan area
+  and, since it forms a loop touching every digit at once, merged them all
+  into a single "digit" — fixed with `peelBorderFrame`, which strips a
+  row/column only when it's actually mostly dark all the way across, so it
+  can't misfire on real digit content near an edge; (3) on a photo where
+  the meter was slightly tilted, the leaked frame fragment wasn't a straight
+  line at all — a corner bracket shape (a side bar meeting the top trim)
+  that no row/column peel could catch, but whose bounding box still spanned
+  almost the whole display and so, in `mergeInkFragments`'s bounding-box-
+  distance check, silently merged every real digit into one shape anyway.
+  Fixed at the root with two changes: eroding the ink by a couple of pixels
+  before grouping into components (`makeErodedInk`, via an integral image
+  so it stays O(1) per pixel) — real digit strokes stay solidly connected
+  to themselves at that scale, but a frame line thinner than the erosion
+  radius breaks apart — then discarding any surviving component whose pixel
+  count is a poor fill of its own bounding box before merging, since a
+  sparse corner-bracket shape is exactly what that catches and a real digit
+  fragment never is. Verified end-to-end against both real device photos
+  (previously "13" and nothing detected — now "000162" and "000040", both
+  correct) and the full existing regression set (all ten digits, the
+  bezel-border and real-digit-crop cases, and the no-display fallback).
 - Meter photo boxes are a fixed, uniform size using `object-fit: cover`
   (see above), so the invoice's overall shape stays stable regardless of
   what photos you take — the exported PDF's page size still matches that
