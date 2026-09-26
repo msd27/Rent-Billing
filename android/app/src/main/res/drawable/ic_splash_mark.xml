@@ -3,9 +3,11 @@
   The house-in-a-tag mark (see src/index.html's .brand-logo SVG for the
   original), repositioned to match the fixed adaptive launcher icon exactly
   — same "position" transform (translate/scale into the 108dp safe zone),
-  same relative ring/house layout. Used as the base for the animated
-  splash-screen icon in ic_splash_mark_animated.xml; "mark_anim" is the
-  group that XML animates.
+  same relative ring/house layout. SplashView renders this to a Bitmap
+  (via ContextCompat.getDrawable) and drives the pop/glow/particle
+  animation itself from Java, rather than through this file's own
+  "mark_anim" group — kept at its default (no-op) transform here, purely
+  for a correctly-positioned static base image.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
