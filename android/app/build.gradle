@@ -16,7 +16,27 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // A fresh CI runner has no ~/.android/debug.keystore of its own, so
+    // the Android Gradle Plugin silently generates a brand new one on
+    // first use — every CI-built APK ended up signed with a different
+    // key, and Android refuses to install an update signed with a
+    // different key over an existing app (no error a user is likely to
+    // notice; it just silently keeps the old app, which looked exactly
+    // like a rebuild "doing nothing"). Committing a fixed debug keystore
+    // and signing every debug build with it means each new APK installs
+    // as a normal update over the last one.
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
