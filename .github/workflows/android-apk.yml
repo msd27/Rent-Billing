@@ -13,6 +13,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -44,3 +46,21 @@ jobs:
         with:
           name: rent-billing-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      # Workflow-run artifacts are served from Azure blob storage
+      # (…blob.core.windows.net), which is unreachable from the sandbox
+      # this project is developed in, same as dl.google.com above. A
+      # release asset is served from github.com/objects.githubusercontent.com
+      # instead, which that sandbox CAN reach, so this is the actual handoff
+      # point — the upload-artifact step above is just for browsing this
+      # run's files from the Actions UI.
+      - name: Publish APK as a release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "apk-run-${{ github.run_number }}" \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            --repo "${{ github.repository }}" \
+            --title "Debug APK (run ${{ github.run_number }})" \
+            --notes "Automated debug build from commit ${{ github.sha }}." \
+            --prerelease
