@@ -17,6 +17,13 @@
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <!-- Real animated splash icon (via androidx.core.splashscreen,
+             installed in MainActivity) instead of a static full-bleed
+             bitmap — see drawable/ic_splash_mark_animated.xml for the
+             animation itself. -->
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_mark_animated</item>
+        <item name="windowSplashScreenAnimationDuration">500</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>
 </resources>

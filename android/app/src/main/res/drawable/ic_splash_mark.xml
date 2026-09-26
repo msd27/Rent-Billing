@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The house-in-a-tag mark (see src/index.html's .brand-logo SVG for the
+  original), repositioned to match the fixed adaptive launcher icon exactly
+  — same "position" transform (translate/scale into the 108dp safe zone),
+  same relative ring/house layout. Used as the base for the animated
+  splash-screen icon in ic_splash_mark_animated.xml; "mark_anim" is the
+  group that XML animates.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:name="position"
+        android:translateX="-1.229"
+        android:translateY="11.983"
+        android:scaleX="0.45837"
+        android:scaleY="0.45837">
+        <group
+            android:name="mark_anim"
+            android:pivotX="120.48"
+            android:pivotY="91.68"
+            android:scaleX="1"
+            android:scaleY="1"
+            android:rotation="0">
+            <group
+                android:name="ring"
+                android:translateX="152"
+                android:translateY="40"
+                android:rotation="28">
+                <path
+                    android:pathData="M -20,0 A 20,14 0 1 0 20,0 A 20,14 0 1 0 -20,0"
+                    android:fillColor="#00000000"
+                    android:strokeColor="#111111"
+                    android:strokeWidth="7" />
+            </group>
+            <group
+                android:name="house"
+                android:translateX="55"
+                android:translateY="74"
+                android:scaleX="0.85"
+                android:scaleY="0.85">
+                <path
+                    android:fillColor="#FFFFFF"
+                    android:pathData="M62,6 L114,50 L98,50 L98,104 L76,104 L76,76 L54,76 L54,104 L30,104 L30,50 L14,50 Z" />
+                <path
+                    android:fillColor="#0075BE"
+                    android:pathData="M52,32 L62,32 L62,42 L52,42 Z" />
+                <path
+                    android:fillColor="#0075BE"
+                    android:pathData="M66,32 L76,32 L76,42 L66,42 Z" />
+            </group>
+        </group>
+    </group>
+</vector>
