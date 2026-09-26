@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rent Billing App</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <svg class="brand-logo" viewBox="0 0 220 220" aria-hidden="true" focusable="false">
+            <ellipse cx="152" cy="40" rx="20" ry="14" fill="none" stroke="#111" stroke-width="7" transform="rotate(28 152 40)"></ellipse>
+            <rect x="45" y="45" width="130" height="130" rx="26" fill="#0075be" transform="rotate(45 110 110)"></rect>
+            <circle cx="152" cy="66" r="8.5" fill="#fff"></circle>
+            <g transform="translate(55,74) scale(0.85)">
+              <path d="M62 6 L114 50 L98 50 L98 104 L76 104 L76 76 L54 76 L54 104 L30 104 L30 50 L14 50 Z" fill="#fff"></path>
+              <rect x="52" y="32" width="10" height="10" fill="#0075be"></rect>
+              <rect x="66" y="32" width="10" height="10" fill="#0075be"></rect>
+            </g>
+          </svg>
+          <div>
+            <p class="eyebrow">Rent Billing</p>
+            <h1>Invoice Builder</h1>
+          </div>
+        </div>
+        <button
+          id="refreshBtn"
+          class="secondary-btn refresh-btn"
+          type="button"
+          title="Clear fields and meter photos for a new invoice (keeps Address, UPI ID, QR code, and signature)"
+        >
+          Refresh
+        </button>
+      </header>
+
+      <section class="controls" aria-label="Invoice controls">
+        <div class="control-fields">
+        <div class="control-grid">
+          <label>
+            Room
+            <input id="room" value="ROOM-4" placeholder="Room" />
+          </label>
+          <label>
+            Tenant name
+            <input id="tenant" value="NIRUPOMA RABHA" placeholder="Tenant name" />
+          </label>
+          <label>
+            Billing month
+            <input id="billingMonth" value="AUGUST 2026" placeholder="Billing month" />
+          </label>
+          <label>
+            UPI ID
+            <input id="upi" value="monoranjansutradhar7@oksbi" />
+          </label>
+        </div>
+
+        <label>
+          Address
+          <textarea id="address" rows="4">HOUSE NO. 262,
+AMRABOTI, THEKASHU PT-I,
+NEAR HARI MANDIR, DUDHNOI,
+GOALPARA, ASSAM-783124</textarea>
+        </label>
+
+        <div class="control-grid">
+          <label class="full-width-field">
+            <span class="field-label-row">
+              Current reading
+              <button id="currentImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
+            </span>
+            <input id="currentReading" type="number" value="190" placeholder="Current reading" />
+            <span id="currentReadingOcrStatus" class="ocr-status" role="status"></span>
+          </label>
+          <label class="full-width-field">
+            <span class="field-label-row">
+              Previous reading
+              <button id="previousImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
+            </span>
+            <input id="previousReading" type="number" value="142" placeholder="Previous reading" />
+            <span id="previousReadingOcrStatus" class="ocr-status" role="status"></span>
+          </label>
+          <label>
+            Rate per unit
+            <input id="rate" type="number" value="6" placeholder="Rate per unit" />
+          </label>
+          <label>
+            Room rent
+            <input id="rent" type="number" value="3000" placeholder="Room rent" />
+          </label>
+          <label>
+            Deduction
+            <input id="deduction" type="number" value="15" placeholder="Deduction" />
+          </label>
+          <label>
+            Other charges
+            <input id="otherCharges" type="number" value="0" placeholder="Other charges" />
+          </label>
+        </div>
+
+        <label>
+          Deduction reason
+          <input id="deductionReason" placeholder="Deduction reason" />
+        </label>
+
+        <label>
+          Other charges reason
+          <input id="otherChargesReason" placeholder="Other charges reason" />
+        </label>
+
+        <div class="control-grid">
+          <label>
+            Current meter date
+            <input id="currentDate" value="1st September 2026" placeholder="Current meter date" />
+          </label>
+          <label>
+            Previous meter date
+            <input id="previousDate" value="30 June 2026" placeholder="Previous meter date" />
+          </label>
+        </div>
+
+        <div class="uploads">
+          <div class="upload-row">
+            <span class="upload-label">Payment QR image</span>
+            <button id="qrImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">Owner signature image</span>
+            <button id="signatureImageBtn" class="secondary-btn add-photo-btn" type="button">Add photo</button>
+          </div>
+        </div>
+        </div>
+
+        <div class="control-footer">
+          <button id="printBtn" class="primary-btn" type="button">Preview PDF</button>
+        </div>
+      </section>
+
+      <section class="preview-wrap" aria-label="Invoice preview">
+        <article id="invoice" class="invoice">
+          <header class="invoice-top">
+            <div class="invoice-logo-badge">
+              <svg viewBox="0 0 220 220" aria-hidden="true" focusable="false">
+                <ellipse cx="152" cy="40" rx="20" ry="14" fill="none" stroke="#111" stroke-width="7" transform="rotate(28 152 40)"></ellipse>
+                <rect x="45" y="45" width="130" height="130" rx="26" fill="#0075be" transform="rotate(45 110 110)"></rect>
+                <circle cx="152" cy="66" r="8.5" fill="#fff"></circle>
+                <g transform="translate(55,74) scale(0.85)">
+                  <path d="M62 6 L114 50 L98 50 L98 104 L76 104 L76 76 L54 76 L54 104 L30 104 L30 50 L14 50 Z" fill="#fff"></path>
+                  <rect x="52" y="32" width="10" height="10" fill="#0075be"></rect>
+                  <rect x="66" y="32" width="10" height="10" fill="#0075be"></rect>
+                </g>
+              </svg>
+            </div>
+            <div class="invoice-title">
+              <div class="invoice-title-inner" data-highlight="title">
+                <p class="invoice-heading"><span>INVOICE</span></p>
+                <h2><span data-out="room"></span> : <span data-out="tenant"></span> | <span data-out="billingMonth"></span></h2>
+              </div>
+            </div>
+            <div class="payment-box" data-highlight="payment">
+              <div id="qrPreview" class="qr-placeholder">QR</div>
+              <p class="upi-id-row">
+                <span class="upi-id-value" data-out="upi"></span>
+                <button id="copyUpiBtn" class="copy-upi-btn" type="button" aria-label="Copy UPI ID">Copy</button>
+              </p>
+            </div>
+          </header>
+
+          <section class="photo-address-row">
+            <div class="meter-photos">
+              <figure class="meter-card" data-highlight="photo-current">
+                <div id="currentImagePreview" class="image-placeholder">Add current meter image</div>
+                <figcaption data-out="currentDate"></figcaption>
+              </figure>
+              <figure class="meter-card" data-highlight="photo-previous">
+                <div id="previousImagePreview" class="image-placeholder">Add previous meter image</div>
+                <figcaption data-out="previousDate"></figcaption>
+              </figure>
+            </div>
+            <address data-highlight="address">
+              <strong>ADDRESS:</strong>
+              <span data-out="address"></span>
+            </address>
+          </section>
+
+          <div class="bill-table-wrap">
+          <table class="bill-table">
+            <tbody>
+              <tr>
+                <th data-highlight="row-units">
+                  Meter Reading Subtraction with Previous month
+                  <span class="as">(পূৰ্বৱৰ্তী মাহৰ সৈতে মিটাৰ ৰিডিঙৰ বিয়োগ)</span>
+                </th>
+                <td data-highlight="row-units">= <span data-out="currentReading"></span>-<span data-out="previousReading"></span> = <span data-out="units"></span>(kWh)units</td>
+              </tr>
+              <tr>
+                <th data-highlight="row-energy">
+                  Energy Charges
+                  <span class="as">(বিদ্যুতৰ খৰচ)</span>
+                </th>
+                <td data-highlight="row-energy">
+                  = <span data-out="units"></span>kWh * <span data-out="rate"></span>(rate per unit)<br />
+                  = <span data-out="energyCharge"></span> /-
+                </td>
+              </tr>
+              <tr>
+                <th data-highlight="row-rent">
+                  Room Rent
+                  <span class="as">(কোঠাৰ ভাড়া)</span>
+                </th>
+                <td data-highlight="row-rent">= <span data-out="rent"></span> /-</td>
+              </tr>
+              <tr>
+                <th data-highlight="row-total">
+                  Total
+                  <span class="as">(সৰ্বমুঠ)</span>
+                </th>
+                <td data-highlight="row-total">
+                  = <span data-out="rent"></span> + <span data-out="energyCharge"></span><span data-out="deductionFormula"></span><span data-out="otherFormula"></span><br />
+                  = <span data-out="total"></span>/-
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+
+          <footer class="invoice-footer">
+            <p data-highlight="row-other">Other charges <span class="as">(অন্য খৰচ)</span> = <span data-out="otherCharges"></span><span data-out="otherChargesReasonFormatted"></span></p>
+            <div class="signature-block">
+              <div id="signaturePreview" class="signature-placeholder">Upload signature</div>
+              <p>Owner: <strong>Monoranjan Sutradhar</strong></p>
+              <p>Generated: <strong data-out="generatedAt"></strong></p>
+            </div>
+            <div class="cut-line">------------------------------******------------------------------</div>
+            <p class="thanks-note">Thank you for staying with us.</p>
+          </footer>
+        </article>
+      </section>
+    </main>
+
+    <div id="pdfPreviewOverlay" class="pdf-preview-overlay" hidden>
+      <div class="pdf-preview-panel">
+        <div class="pdf-preview-header">
+          <span>Invoice preview</span>
+          <button id="pdfPreviewClose" class="secondary-btn" type="button">Close</button>
+        </div>
+        <div class="pdf-preview-body">
+          <img id="pdfPreviewImage" alt="Generated invoice preview" />
+        </div>
+        <div class="pdf-preview-actions">
+          <button id="pdfPreviewPayBtn" class="secondary-btn pay-upi-btn" type="button">Pay via UPI</button>
+          <button id="pdfPreviewConfirm" class="primary-btn" type="button">Save / Share PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="imageSourceOverlay" class="pdf-preview-overlay" hidden>
+      <div class="pdf-preview-panel image-source-panel">
+        <div class="pdf-preview-header">
+          <span>Add photo</span>
+          <button id="imageSourceClose" class="secondary-btn" type="button">Close</button>
+        </div>
+        <div class="image-source-actions">
+          <button id="imageSourceCamera" class="add-photo-btn" type="button">Take photo</button>
+          <button id="imageSourceGallery" class="secondary-btn" type="button">Choose from gallery</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="pinOverlay" class="pdf-preview-overlay" hidden>
+      <div class="pdf-preview-panel pin-panel">
+        <div class="pdf-preview-header">
+          <span id="pinTitle">Enter PIN</span>
+          <button id="pinClose" class="secondary-btn" type="button">Close</button>
+        </div>
+        <div class="pin-body">
+          <p id="pinMessage" class="pin-message"></p>
+          <input id="pinInput" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="PIN" />
+          <input id="pinConfirmInput" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Confirm PIN" hidden />
+          <p id="pinError" class="pin-error" hidden></p>
+          <button id="pinSubmit" class="primary-btn" type="button">Continue</button>
+          <button id="pinForgot" class="secondary-btn pin-forgot-btn" type="button">Forgot PIN?</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="ocrDebugOverlay" class="pdf-preview-overlay" hidden>
+      <div class="pdf-preview-panel">
+        <div class="pdf-preview-header">
+          <span>What OCR saw</span>
+          <button id="ocrDebugClose" class="secondary-btn" type="button">Close</button>
+        </div>
+        <div class="pdf-preview-body">
+          <img id="ocrDebugImage" alt="Processed meter display region" />
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

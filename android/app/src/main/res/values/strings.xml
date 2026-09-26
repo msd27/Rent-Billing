@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Rent Billing</string>
+    <string name="title_activity_main">Rent Billing</string>
+    <string name="package_name">com.monoranjan.rentbilling</string>
+    <string name="custom_url_scheme">com.monoranjan.rentbilling</string>
+</resources>

@@ -1,0 +1,66 @@
+name: Build Android APK
+
+# Builds the debug APK on GitHub's own runners instead of locally — the
+# Android Gradle Plugin resolves its dependencies from Google's Maven repo
+# (dl.google.com), which is unreachable from the sandbox this project is
+# normally developed in.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/zen-dijkstra-dlmiqh
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: node esbuild.config.js
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rent-billing-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      # Workflow-run artifacts are served from Azure blob storage
+      # (…blob.core.windows.net), which is unreachable from the sandbox
+      # this project is developed in, same as dl.google.com above. A
+      # release asset is served from github.com/objects.githubusercontent.com
+      # instead, which that sandbox CAN reach, so this is the actual handoff
+      # point — the upload-artifact step above is just for browsing this
+      # run's files from the Actions UI.
+      - name: Publish APK as a release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "apk-run-${{ github.run_number }}" \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            --repo "${{ github.repository }}" \
+            --title "Debug APK (run ${{ github.run_number }})" \
+            --notes "Automated debug build from commit ${{ github.sha }}." \
+            --prerelease

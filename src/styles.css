@@ -1,0 +1,1034 @@
+@font-face {
+  font-family: "Noto Sans Bengali";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/noto-sans-bengali-bengali-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans Bengali";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/noto-sans-bengali-bengali-700-normal.woff2") format("woff2");
+}
+
+:root {
+  --ink: #111111;
+  --muted: #5c6670;
+  --line: #151515;
+  --panel: #f5f7f8;
+  --accent: #0f766e;
+  --accent-dark: #0b4f4a;
+  --paper: #ffffff;
+  /* Shared paper-grain fill (flat color + fractal-noise SVG grain) used
+     everywhere except the invoice itself, so the header, the form panel
+     and the area around the invoice preview all read as one surface. */
+  --paper-bg-color: #f2ede2;
+  --paper-bg-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44NSIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9Im1hdHJpeCIgdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjA1IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4=");
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: Arial, "Noto Sans Bengali", "Nirmala UI", sans-serif;
+  background-color: var(--paper-bg-color);
+  background-image: var(--paper-bg-image);
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(680px, 1fr);
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+}
+
+.app-header {
+  align-items: center;
+  background-color: var(--paper-bg-color);
+  background-image: var(--paper-bg-image);
+  border-bottom: 1px solid #c8d0d4;
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  padding: 16px 22px;
+}
+
+.controls {
+  grid-column: 1;
+  grid-row: 2;
+  background-color: var(--paper-bg-color);
+  background-image: var(--paper-bg-image);
+  border-right: 1px solid #c8d0d4;
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+}
+
+.control-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.control-footer {
+  /* A plain flex sibling after .control-fields (not position:fixed or
+     sticky) — same reasoning as .app-header: a structural sibling
+     outside the scrolling region can't be scrolled under or mis-clipped
+     by a WebView's sticky quirks, it just always occupies its own space
+     at the bottom of .controls. Keeping Preview PDF here (out of the
+     brand header) keeps the fixed chrome at the very top minimal, so
+     .control-fields keeps as much room as possible — with a taller
+     fixed header eating into a WebView already shrunk by the open
+     keyboard, a field like "Previous reading" could end up hidden
+     behind the keyboard with no space left to scroll it into view. */
+  flex: 0 0 auto;
+  border-top: 1px solid #c8d0d4;
+  margin: 18px 0 0;
+  padding-top: 18px;
+}
+
+.control-footer .primary-btn {
+  width: 100%;
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.refresh-btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.brand-logo {
+  flex: 0 0 auto;
+  height: 40px;
+  width: 40px;
+}
+
+.eyebrow {
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: 26px;
+  line-height: 1.1;
+  margin: 0;
+}
+
+label {
+  color: #20272d;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 7px;
+}
+
+input,
+textarea {
+  background: #f2f8f7;
+  border: 1px solid #b8c1c7;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 3px rgba(11, 79, 74, 0.1), 0 1px 0 rgba(255, 255, 255, 0.6);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  min-height: 40px;
+  padding: 9px 10px;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+input:focus,
+textarea:focus {
+  background: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18);
+  outline: none;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.control-grid,
+.uploads {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Current/previous reading now carry an "Add photo" button alongside their
+   label — cramped into half the grid's width, that button forced the label
+   text onto two lines. Spanning the full row gives both room to sit on one
+   line. */
+.full-width-field {
+  grid-column: 1 / -1;
+}
+
+.uploads {
+  grid-template-columns: 1fr;
+}
+
+.primary-btn {
+  align-items: center;
+  background: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.primary-btn:hover {
+  background: var(--accent-dark);
+}
+
+.primary-btn:disabled {
+  background: #8ba8a4;
+  cursor: not-allowed;
+}
+
+.upload-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Keeps the "Add photo" button that fills a reading field right next to
+   that field's own name, instead of in the unrelated uploads list further
+   down the form where it's easy to miss the connection between the two. */
+.field-label-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.upload-label {
+  color: #20272d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.secondary-btn {
+  background: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent-dark);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.secondary-btn:hover {
+  background: var(--panel);
+}
+
+.add-photo-btn {
+  background: linear-gradient(180deg, #16a89a, var(--accent-dark));
+  border: 1px solid var(--accent-dark);
+  box-shadow: 0 2px 3px rgba(11, 79, 74, 0.25), 0 4px 10px rgba(11, 79, 74, 0.2);
+  color: #fff;
+}
+
+/* Comes after .secondary-btn:hover so this wins for the same
+   background/hover properties despite equal (one-class) specificity —
+   source order is the tiebreaker. */
+.add-photo-btn:hover {
+  background: linear-gradient(180deg, #1abfad, #0a3f3b);
+}
+
+.add-photo-btn:active {
+  background: var(--accent-dark);
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.25);
+}
+
+.ocr-status {
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 14px;
+}
+
+/*
+ * Chromium does not paint box-shadow on table cells (td/th) when the
+ * table uses border-collapse: collapse (which .bill-table always has) —
+ * the highlight was silently invisible on every table-row target
+ * (rent, deduction, energy, units, total) even though the class and
+ * animation were both correctly applied. outline + filter:drop-shadow
+ * aren't subject to that collapsed-border suppression, so they're used
+ * here instead, uniformly for every highlight target (not just table
+ * cells) to keep one consistent look.
+ */
+@keyframes neon-pulse-green {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(57, 255, 20, 0.55)) drop-shadow(0 0 10px rgba(57, 255, 20, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(57, 255, 20, 0.95)) drop-shadow(0 0 20px rgba(57, 255, 20, 0.65));
+  }
+}
+
+@keyframes neon-pulse-yellow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(255, 212, 0, 0.55)) drop-shadow(0 0 10px rgba(255, 212, 0, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(255, 212, 0, 0.95)) drop-shadow(0 0 20px rgba(255, 212, 0, 0.65));
+  }
+}
+
+.neon-highlight {
+  animation: neon-pulse-green 1.1s ease-in-out infinite;
+  border-radius: 4px;
+  outline: 2px solid #39ff14;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+}
+
+[data-highlight^="photo-"].neon-highlight {
+  animation-name: neon-pulse-yellow;
+  outline-color: #ffd400;
+}
+
+.pdf-preview-overlay {
+  align-items: center;
+  background: rgba(10, 15, 14, 0.72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.pdf-preview-overlay[hidden] {
+  display: none;
+}
+
+.pdf-preview-panel {
+  background: var(--paper);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+  max-width: 960px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.pdf-preview-header {
+  align-items: center;
+  border-bottom: 1px solid #dde3e6;
+  display: flex;
+  font-weight: 800;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.pdf-preview-body {
+  background: #e9edee;
+  overflow: auto;
+  padding: 16px;
+}
+
+.pdf-preview-body img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.pdf-preview-actions {
+  border-top: 1px solid #dde3e6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.image-source-panel {
+  max-width: 320px;
+}
+
+.image-source-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.image-source-actions button {
+  min-height: 44px;
+  width: 100%;
+}
+
+.pdf-preview-actions .primary-btn,
+.pdf-preview-actions .secondary-btn {
+  width: 100%;
+}
+
+.pay-upi-btn {
+  margin-top: 8px;
+}
+
+.pin-panel {
+  max-width: 320px;
+}
+
+.pin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.pin-message {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.pin-input {
+  font-size: 20px;
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.pin-error {
+  color: #b3261e;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pin-body .primary-btn,
+.pin-forgot-btn {
+  width: 100%;
+}
+
+.pin-forgot-btn {
+  border-color: transparent;
+}
+
+.preview-wrap {
+  grid-column: 2;
+  grid-row: 2;
+  overflow: auto;
+  padding: 28px;
+}
+
+.invoice {
+  background: var(--paper);
+  box-shadow: 0 10px 34px rgba(32, 39, 45, 0.18);
+  margin: 0 auto;
+  min-height: 794px;
+  padding: 72px 54px 24px;
+  width: 1123px;
+}
+
+.invoice-top {
+  /* Not a grid: a grid row's height is the max of its columns, and the
+     payment box (QR + UPI text + the Pay-via-UPI button) is now much
+     taller than the short title text, which pushed the photo row down
+     well below where the heading actually ends. Positioning the payment
+     box absolutely (as the print styles already did) keeps the header's
+     flow height tied to the title alone. */
+  position: relative;
+}
+
+.invoice-logo-badge {
+  height: 90px;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 90px;
+  z-index: 2;
+}
+
+.invoice-logo-badge svg {
+  display: block;
+  filter: drop-shadow(0 3px 5px rgba(17, 17, 17, 0.3));
+  height: 100%;
+  width: 100%;
+}
+
+.invoice-title {
+  padding-left: 108px;
+  padding-right: 230px;
+  padding-top: 4px;
+  text-align: center;
+}
+
+.invoice-title-inner {
+  /* Shrink-wraps to the actual heading/title text (text-align:center on
+     the parent still centers it within the full row) instead of
+     stretching to the parent's full width — .invoice-title reserves
+     230px of padding-right for the payment box, and the old
+     data-highlight="title" target was that full-width parent, so its
+     neon-highlight outline stretched straight across underneath the QR
+     code instead of hugging just the title text. */
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.invoice-heading {
+  color: var(--accent-dark);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  margin: 0 0 8px;
+}
+
+.invoice-title h2 {
+  font-size: 28px;
+  line-height: 1.2;
+  margin: 0;
+  text-align: left;
+}
+
+.invoice-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 14px;
+  justify-content: flex-start;
+  margin-top: 6px;
+}
+
+.payment-box {
+  position: absolute;
+  right: 0;
+  text-align: center;
+  top: 0;
+  width: 220px;
+}
+
+.payment-box p {
+  color: #444;
+  font-size: 13px;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.upi-id-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.upi-id-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-upi-btn {
+  background: #eef2f1;
+  border: 1px solid #a4a4a4;
+  border-radius: 4px;
+  color: #1f6f5c;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.copy-upi-btn:active {
+  background: #dbe6e3;
+}
+
+.qr-placeholder {
+  align-items: center;
+  background: #f5f5f5;
+  border: 1px dashed #a4a4a4;
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(17, 17, 17, 0.18), 0 12px 26px rgba(17, 17, 17, 0.22);
+  display: flex;
+  font-size: 32px;
+  font-weight: 800;
+  height: 166px;
+  justify-content: center;
+  margin-left: auto;
+  overflow: hidden;
+  width: 200px;
+}
+
+.signature-placeholder img,
+.image-placeholder img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.qr-placeholder img {
+  /* A QR code cropped to fill the box (object-fit: cover) can lose its
+     corner finder patterns and become unscannable — unlike the meter/
+     signature photos, this one has to show the uploaded image exactly
+     as-is, letterboxed rather than cropped. */
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.photo-address-row {
+  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr 325px;
+  gap: 42px;
+  margin-top: 12px;
+}
+
+.meter-photos {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, 292px);
+}
+
+.meter-card {
+  margin: 0;
+}
+
+.image-placeholder {
+  align-items: center;
+  background: #e7ece8;
+  border: 1px dashed #9aa89f;
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(17, 17, 17, 0.18), 0 12px 26px rgba(17, 17, 17, 0.22);
+  color: #48534c;
+  display: flex;
+  font-weight: 700;
+  height: 278px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 18px;
+  text-align: center;
+  width: 292px;
+}
+
+.meter-card figcaption {
+  color: var(--muted);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 6px;
+  text-align: center;
+}
+
+address {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(17, 17, 17, 0.16), 0 14px 30px rgba(17, 17, 17, 0.2);
+  font-size: 20px;
+  font-style: normal;
+  line-height: 1.35;
+  margin-top: 156px;
+  padding: 10px 14px;
+  white-space: pre-line;
+}
+
+.bill-table-wrap {
+  /* border-radius on a border-collapse:collapse table is unreliable
+     across browsers (the collapsed cell borders bypass the table's own
+     box-model rounding) — wrapping it and clipping with overflow:hidden
+     is the standard, reliable way to get rounded corners here. */
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 3px 6px rgba(17, 17, 17, 0.16), 0 14px 30px rgba(17, 17, 17, 0.2);
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.bill-table {
+  border-collapse: collapse;
+  font-size: 27px;
+  line-height: 1.25;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.bill-table th,
+.bill-table td {
+  border: 1px solid var(--line);
+  padding: 3px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.bill-table th {
+  font-weight: 500;
+  width: 50%;
+}
+
+.bill-table td {
+  width: 50%;
+}
+
+.as {
+  display: inline;
+  font-family: "Noto Sans Bengali", "Nirmala UI", Arial, sans-serif;
+}
+
+.invoice-footer {
+  font-size: 25px;
+  margin-top: 4px;
+}
+
+.invoice-footer p {
+  margin: 0 0 6px 12px;
+}
+
+.cut-line {
+  font-family: Arial, sans-serif;
+  letter-spacing: 0;
+  margin-top: 14px;
+  text-align: center;
+}
+
+.signature-block {
+  font-size: 13px;
+  margin-top: 10px;
+  text-align: right;
+}
+
+.signature-block p {
+  margin: 2px 0;
+}
+
+.thanks-note {
+  clear: both;
+  color: #5b656b;
+  font-size: 16px;
+  font-style: italic;
+  margin: 18px 0 0;
+  text-align: center;
+}
+
+.signature-placeholder {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: #5b656b;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  height: 52px;
+  justify-content: center;
+  margin-bottom: 4px;
+  padding: 4px;
+  width: 190px;
+}
+
+@media (max-width: 1100px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app-header {
+    /* -2 so it sorts before .preview-wrap's -1 — the brand header is the
+       very first thing on screen, above the pinned invoice preview. */
+    flex: 0 0 auto;
+    order: -2;
+  }
+
+  .controls {
+    border-right: 0;
+    border-bottom: 1px solid #c8d0d4;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .control-fields {
+    /* The actual scrolling region — .app-header (brand) and
+       .control-footer (Preview PDF) both sit structurally outside it as
+       plain siblings, not position:sticky, so neither can ever be
+       scrolled under/behind: on-device testing showed sticky
+       positioning didn't reliably mask fields scrolling past it (some
+       WebView versions render position:sticky inconsistently inside a
+       nested flex/overflow context), leaving field text visibly poking
+       out above the header. Keeping both bars structurally outside the
+       scroll container avoids that class of bug entirely. */
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .preview-wrap {
+    /* Deliberately not display:flex: flexbox positions a child using its
+       *layout* size, and by default also shrinks a flex item toward its
+       container (flex-shrink:1) before any transform is applied — both
+       of which broke the math in fitInvoiceToViewport, which assumes the
+       invoice's real (unshrunk) 1123px layout width. Plain block flow
+       keeps that assumption valid; centering is computed and applied
+       directly as a margin in JS instead. */
+    flex: 0 0 auto;
+    /* Fixed to a JS-captured viewport height (see lockViewportHeight in
+       app.js) instead of a raw vh/dvh unit: dvh tracks the WebView's
+       *current* visual viewport, which Android shrinks when the on-screen
+       keyboard opens — that was making this preview (and the invoice
+       scaled to fit it) visibly shrink while editing a field. The locked
+       value only updates on a real width change (orientation/resize), not
+       a keyboard toggle. */
+    height: calc(var(--app-vh, 100dvh) * 0.46);
+    order: -1;
+    overflow: hidden;
+    padding: 12px;
+  }
+
+  /* When the keyboard is open (see updateKeyboardState in app.js), the
+     fixed-height header + preview no longer leave enough of the actually
+     shrunk viewport for the form to be usable. --keyboard-preview-height
+     is computed by sizePreviewForKeyboard() from the real height of two
+     stacked field rows, so the form always keeps room to show the field
+     being edited plus the next one — whatever's left goes to the
+     preview, which stays visible (just smaller) rather than being
+     hidden; app.js re-runs fitInvoiceToViewport() right after this class
+     toggles so the invoice itself rescales down to match. The 140px
+     fallback only matters before the first measurement runs.  */
+  html.keyboard-open .preview-wrap {
+    height: var(--keyboard-preview-height, 140px);
+  }
+}
+
+@media (max-width: 640px) {
+  .controls {
+    padding: 16px;
+  }
+
+  .control-fields {
+    gap: 14px;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .primary-btn {
+    width: 100%;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0;
+    size: A4 landscape;
+  }
+
+  html,
+  body {
+    background: #fff;
+    height: 210mm;
+    overflow: hidden;
+    width: 297mm;
+  }
+
+  .controls {
+    display: none;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .preview-wrap {
+    height: 210mm;
+    overflow: visible;
+    padding: 0;
+    width: 297mm;
+  }
+
+  .invoice {
+    box-shadow: none;
+    height: 210mm;
+    margin: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8mm 13mm 8mm;
+    position: relative;
+    width: 297mm;
+    break-after: avoid;
+    break-before: avoid;
+    break-inside: avoid;
+    page-break-after: avoid;
+    page-break-before: avoid;
+    page-break-inside: avoid;
+  }
+
+  .invoice-top {
+    display: block;
+  }
+
+  .invoice-title {
+    padding-top: 0;
+  }
+
+  .invoice-title p {
+    font-size: 18pt;
+    margin-bottom: 1mm;
+  }
+
+  .invoice-title h2 {
+    font-size: 16pt;
+    padding-right: 68mm;
+  }
+
+  .invoice-meta {
+    font-size: 9pt;
+    gap: 8mm;
+    margin-top: 1.5mm;
+  }
+
+  .payment-box {
+    position: absolute;
+    right: 13mm;
+    text-align: center;
+    top: 8mm;
+    width: 49mm;
+  }
+
+  .payment-box p {
+    font-size: 7pt;
+    margin-top: 1mm;
+  }
+
+  .qr-placeholder {
+    font-size: 14pt;
+    height: 42mm;
+    width: 46mm;
+  }
+
+  .photo-address-row {
+    grid-template-columns: 155mm 82mm;
+    gap: 18mm;
+    margin-top: 4mm;
+  }
+
+  .meter-photos {
+    gap: 4mm;
+    grid-template-columns: repeat(2, 75mm);
+  }
+
+  .image-placeholder {
+    height: 69mm;
+    width: 75mm;
+  }
+
+  .image-placeholder {
+    font-size: 10pt;
+    padding: 2mm;
+  }
+
+  .meter-card figcaption {
+    font-size: 8pt;
+    margin-top: 1.5mm;
+  }
+
+  address {
+    font-size: 12pt;
+    line-height: 1.2;
+    margin-top: 18mm;
+    padding: 4mm;
+  }
+
+  .bill-table {
+    font-size: 15pt;
+    line-height: 1.16;
+    margin-top: 3mm;
+  }
+
+  .bill-table th,
+  .bill-table td {
+    padding: 1.5mm 2.5mm;
+  }
+
+  .invoice-footer {
+    font-size: 14pt;
+    margin-top: 2mm;
+  }
+
+  .invoice-footer p {
+    margin: 0 0 2mm 3mm;
+  }
+
+  .cut-line {
+    font-size: 12pt;
+  }
+
+  .signature-block {
+    bottom: 8mm;
+    font-size: 9pt;
+    position: absolute;
+    right: 13mm;
+    text-align: right;
+    width: 62mm;
+  }
+
+  .signature-block p {
+    margin: 0.7mm 0 0;
+  }
+
+  .signature-placeholder {
+    font-size: 8pt;
+    height: 18mm;
+    margin-bottom: 1mm;
+    padding: 1mm;
+    width: 48mm;
+  }
+
+  .thanks-note {
+    font-size: 10pt;
+    margin-top: 6mm;
+  }
+
+  .signature-placeholder img {
+    object-fit: contain;
+  }
+}
